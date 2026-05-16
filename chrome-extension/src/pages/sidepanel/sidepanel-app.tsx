@@ -1,21 +1,14 @@
 ﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, Dropdown, IconButton, ListItem, PillButton, Segmented, Switch } from "../../ui/m3";
 import {
+  IconAndroid,
   IconArrowLeft,
-  IconChevronRight,
   IconCheck,
   IconCode,
   IconDelete,
   IconDevices,
-  IconDownload,
   IconExternalLink,
-  IconAppStore,
-  IconFileArchive,
-  IconFileAudio,
-  IconFileImage,
   IconFileText,
-  IconFileVideo,
-  IconFolder,
   IconGithub,
   IconGlobe,
   IconHeart,
@@ -27,12 +20,12 @@ import {
   IconPalette,
   IconPip,
   IconPower,
-  IconRefresh,
   IconSettings,
   IconShield,
   IconSoundOff,
   IconSoundOn,
   IconSun,
+  IconTerminal,
   IconUpload,
   IconUsb
 } from "../../ui/icons";
@@ -49,6 +42,7 @@ import {
   setLocale,
   setPipResumeState,
   setShizukuEnabled,
+  setTerminalFont,
   setThemeMode,
   ThemeMode
 } from "../../shared/storage";
@@ -59,7 +53,23 @@ import bannerImage from "../../assets/BG.png";
 import avatarImage from "../../assets/avatar.jpg";
 import logoImage from "../../assets/neoscrcpy.png";
 import { formatThemeLabel, t } from "../../shared/i18n";
-import { ShizukuAdbScreen } from "./advanced-screens";
+import { CommandLineScreen, ShizukuAdbScreen, TERMINAL_FONTS } from "./advanced-screens";
+import { FileManagerScreen } from "./file-manager-screen";
+
+type FrameBufferLike = {
+  bpp: number;
+  width: number;
+  height: number;
+  red_offset: number;
+  red_length: number;
+  green_offset: number;
+  green_length: number;
+  blue_offset: number;
+  blue_length: number;
+  alpha_offset: number;
+  alpha_length: number;
+  data: Uint8Array;
+};
 
 type Screen =
   | "devices"
@@ -68,6 +78,7 @@ type Screen =
   | "installApp"
   | "deviceTips"
   | "shizukuAdb"
+  | "commandLine"
   | "settingsMain"
   | "settingsAppearance"
   | "settingsGeneral"
@@ -150,6 +161,50 @@ function isCompatible() {
   return hasUsb && hasWebCodecs && hasWebGl;
 }
 
+function normalizeColorChannel(value: number, length: number) {
+  if (length <= 0) return 255;
+  const max = (1 << length) - 1;
+  return Math.round((value / max) * 255);
+}
+
+function readFrameBufferChannel(pixel: number, offset: number, length: number) {
+  if (length <= 0) return 255;
+  return normalizeColorChannel((pixel >>> offset) & ((1 << length) - 1), length);
+}
+
+async function frameBufferToObjectUrl(frame: FrameBufferLike) {
+  if (!frame.width || !frame.height || !frame.data.length) return null;
+  const bytesPerPixel = Math.max(1, Math.floor(frame.bpp / 8));
+  const rgba = new Uint8ClampedArray(frame.width * frame.height * 4);
+  const view = new DataView(frame.data.buffer, frame.data.byteOffset, frame.data.byteLength);
+
+  for (let index = 0; index < frame.width * frame.height; index += 1) {
+    const source = index * bytesPerPixel;
+    const target = index * 4;
+    let pixel = 0;
+    if (bytesPerPixel >= 4) {
+      pixel = view.getUint32(source, true);
+    } else if (bytesPerPixel === 2) {
+      pixel = view.getUint16(source, true);
+    } else {
+      pixel = frame.data[source] ?? 0;
+    }
+    rgba[target] = readFrameBufferChannel(pixel, frame.red_offset, frame.red_length);
+    rgba[target + 1] = readFrameBufferChannel(pixel, frame.green_offset, frame.green_length);
+    rgba[target + 2] = readFrameBufferChannel(pixel, frame.blue_offset, frame.blue_length);
+    rgba[target + 3] = frame.alpha_length ? readFrameBufferChannel(pixel, frame.alpha_offset, frame.alpha_length) : 255;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = frame.width;
+  canvas.height = frame.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.putImageData(new ImageData(rgba, frame.width, frame.height), 0, 0);
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.72));
+  return blob ? URL.createObjectURL(blob) : null;
+}
+
 export function SidePanelApp() {
   const { mode, update, setFromStorage } = useThemeState();
   const { locale, update: updateLocale, setFromStorage: setLocaleFromStorage } = useLocaleState();
@@ -159,6 +214,7 @@ export function SidePanelApp() {
   const [controlTitle, setControlTitle] = useState<string | null>(null);
   const [controlActions, setControlActions] = useState<React.ReactNode>(null);
   const [shizukuFeatureEnabled, setShizukuFeatureEnabled] = useState(false);
+  const [terminalFont, setTerminalFontValue] = useState(TERMINAL_FONTS[0].value);
 
   const titles: Record<Screen, string> = useMemo(
     () => ({
@@ -168,6 +224,7 @@ export function SidePanelApp() {
       installApp: t(locale, "nav.installApp"),
       deviceTips: t(locale, "nav.deviceTips"),
       shizukuAdb: t(locale, "nav.shizukuAdb"),
+      commandLine: t(locale, "nav.commandLine"),
       settingsMain: t(locale, "nav.settings"),
       settingsAppearance: t(locale, "nav.settingsAppearance"),
       settingsGeneral: t(locale, "nav.settingsGeneral"),
@@ -192,6 +249,7 @@ export function SidePanelApp() {
       if (!mounted) return;
       setRecent(s.recentDevices);
       setShizukuFeatureEnabled(s.shizukuEnabled);
+      setTerminalFontValue(s.terminalFont);
       if (screen === "devices" && isCompatible()) {
         const resumeState = await getPipResumeState();
         if (!mounted || !resumeState?.serial) return;
@@ -215,6 +273,9 @@ export function SidePanelApp() {
       if (changes.shizukuEnabled) {
         setShizukuFeatureEnabled(Boolean(changes.shizukuEnabled.newValue));
       }
+      if (changes.terminalFont?.newValue) {
+        setTerminalFontValue(changes.terminalFont.newValue as string);
+      }
     };
     chrome.storage.onChanged.addListener(listener);
     return () => {
@@ -228,7 +289,7 @@ export function SidePanelApp() {
       setScreen("deviceHome");
       return;
     }
-    if (screen === "fileManager" || screen === "installApp" || screen === "deviceTips" || screen === "shizukuAdb") {
+    if (screen === "fileManager" || screen === "installApp" || screen === "deviceTips" || screen === "shizukuAdb" || screen === "commandLine") {
       setScreen("deviceHome");
       return;
     }
@@ -276,6 +337,7 @@ export function SidePanelApp() {
   const openInstallApp = useCallback(() => setScreen("installApp"), []);
   const openDeviceTips = useCallback(() => setScreen("deviceTips"), []);
   const openShizukuAdb = useCallback(() => setScreen("shizukuAdb"), []);
+  const openCommandLine = useCallback(() => setScreen("commandLine"), []);
   const openPipLauncherForSelected = useCallback(async () => {
     const device = recent.find((d) => d.serial === selectedSerial);
     const params = new URLSearchParams();
@@ -295,7 +357,7 @@ export function SidePanelApp() {
     if (screen !== "control" && screen !== "fileManager") {
       setControlActions(null);
     }
-    if (screen !== "control" && screen !== "deviceHome" && screen !== "fileManager" && screen !== "installApp") {
+    if (screen !== "control" && screen !== "deviceHome" && screen !== "fileManager" && screen !== "installApp" && screen !== "commandLine") {
       setControlTitle(null);
     }
   }, [screen]);
@@ -351,6 +413,7 @@ export function SidePanelApp() {
             onPip={() => void openPipLauncherForSelected()}
             onDeviceTips={openDeviceTips}
             onShizukuAdb={openShizukuAdb}
+            onCommandLine={openCommandLine}
             shizukuFeatureEnabled={shizukuFeatureEnabled}
           />
         )}
@@ -371,6 +434,15 @@ export function SidePanelApp() {
           />
         )}
         {screen === "shizukuAdb" && <ShizukuAdbScreen locale={locale} serial={selectedSerial ?? undefined} onNeedPermission={openPermissionTab} />}
+        {screen === "commandLine" && (
+          <CommandLineScreen
+            locale={locale}
+            serial={selectedSerial ?? undefined}
+            onNeedPermission={openPermissionTab}
+            onOpenScreen={openControl}
+            terminalFont={terminalFont}
+          />
+        )}
         {screen === "settingsMain" && (
           <SettingsMainScreen
             locale={locale}
@@ -381,10 +453,19 @@ export function SidePanelApp() {
         {screen === "settingsAppearance" && <SettingsAppearanceScreen locale={locale} themeMode={mode} onThemeMode={update} />}
         {screen === "settingsGeneral" && <SettingsGeneralScreen locale={locale} value={locale} onLocale={updateLocale} />}
         {screen === "settingsDeveloper" && (
-          <SettingsDeveloperScreen enabled={shizukuFeatureEnabled} onEnabled={async (next) => {
-            setShizukuFeatureEnabled(next);
-            await setShizukuEnabled(next);
-          }} locale={locale} />
+          <SettingsDeveloperScreen
+            enabled={shizukuFeatureEnabled}
+            onEnabled={async (next) => {
+              setShizukuFeatureEnabled(next);
+              await setShizukuEnabled(next);
+            }}
+            locale={locale}
+            terminalFont={terminalFont}
+            onTerminalFont={async (next) => {
+              setTerminalFontValue(next);
+              await setTerminalFont(next);
+            }}
+          />
         )}
         {screen === "settingsPrivacy" && <SettingsPrivacyScreen locale={locale} />}
         {screen === "settingsAbout" && <SettingsAboutScreen locale={locale} />}
@@ -480,6 +561,7 @@ function DeviceHomeScreen({
   onPip,
   onDeviceTips,
   onShizukuAdb,
+  onCommandLine,
   shizukuFeatureEnabled
 }: {
   locale: Locale;
@@ -490,18 +572,88 @@ function DeviceHomeScreen({
   onPip: () => void;
   onDeviceTips: () => void;
   onShizukuAdb: () => void;
+  onCommandLine: () => void;
   shizukuFeatureEnabled: boolean;
 }) {
   const title = device?.model || device?.name || "Android Device";
   const serial = device?.serial || t(locale, "common.noDeviceSelected");
   const hasDeviceTip = isXiaomiDeviceName(title) || isXiaomiDeviceName(device?.name);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewFailed, setPreviewFailed] = useState(false);
+
+  useEffect(() => {
+    let disposed = false;
+    let objectUrl: string | null = null;
+    setPreviewUrl(null);
+    setPreviewFailed(false);
+
+    void (async () => {
+      if (!device?.serial) {
+        setPreviewFailed(true);
+        return;
+      }
+      const connection = await WebADB.getInstance().connectGranted(device.serial);
+      if (!connection) {
+        if (!disposed) setPreviewFailed(true);
+        return;
+      }
+      try {
+        const frame = await connection.adb.framebuffer();
+        objectUrl = await frameBufferToObjectUrl(frame as FrameBufferLike);
+        if (!disposed && objectUrl) setPreviewUrl(objectUrl);
+        if (!disposed && !objectUrl) setPreviewFailed(true);
+      } catch {
+        if (!disposed) setPreviewFailed(true);
+      } finally {
+        await connection.dispose();
+      }
+    })();
+
+    return () => {
+      disposed = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [device?.serial]);
 
   return (
     <div className="container" style={{ paddingTop: 12 }}>
       <Card>
-        <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={{ fontSize: 16, fontWeight: 900, color: "var(--color-on-surface)" }}>{title}</div>
-          <div className="muted" style={{ fontSize: 12, lineHeight: 1.5 }}>{serial}</div>
+        <div style={{ minHeight: 150, padding: 18, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 20, overflow: "hidden" }}>
+          <div style={{ minWidth: 0, paddingLeft: 4, paddingTop: 10 }}>
+            <div style={{ fontSize: 18, fontWeight: 900, color: "var(--color-on-surface)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</div>
+            <div className="muted" style={{ marginTop: 6, fontSize: 13, lineHeight: 1.5 }}>{serial}</div>
+          </div>
+          <div
+            aria-label={t(locale, "deviceHome.preview")}
+            style={{
+              alignSelf: "flex-end",
+              flex: "0 0 auto",
+              width: 118,
+              height: 162,
+              marginRight: 20,
+              marginBottom: -38,
+              border: "4px solid #ffffff",
+              borderBottom: 0,
+              borderRadius: "24px 24px 0 0",
+              overflow: "hidden",
+              background: "#8e8e93",
+              display: "grid",
+              placeItems: "center",
+              boxShadow: "0 -1px 0 rgba(255,255,255,0.4)"
+            }}
+          >
+            {previewUrl ? (
+              <img
+                src={previewUrl}
+                alt={t(locale, "deviceHome.preview")}
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
+            ) : (
+              <span style={{ color: previewFailed ? "#f2f2f2" : "rgba(255,255,255,0.5)", display: "inline-flex" }}>
+                <IconAndroid size={46} />
+              </span>
+            )}
+          </div>
         </div>
       </Card>
 
@@ -544,13 +696,22 @@ function DeviceHomeScreen({
           />
         )}
         {shizukuFeatureEnabled && (
-          <ListItem
-            icon={<IconCode size={20} />}
-            title={t(locale, "deviceHome.shizuku.title")}
-            subtitle={t(locale, "deviceHome.shizuku.subtitle")}
-            isNav
-            onClick={onShizukuAdb}
-          />
+          <>
+            <ListItem
+              icon={<IconCode size={20} />}
+              title={t(locale, "deviceHome.shizuku.title")}
+              subtitle={t(locale, "deviceHome.shizuku.subtitle")}
+              isNav
+              onClick={onShizukuAdb}
+            />
+            <ListItem
+              icon={<IconTerminal size={20} />}
+              title={t(locale, "deviceHome.commandLine.title")}
+              subtitle={t(locale, "deviceHome.commandLine.subtitle")}
+              isNav
+              onClick={onCommandLine}
+            />
+          </>
         )}
       </Card>
     </div>
@@ -636,453 +797,6 @@ function DeviceTipsScreen({
           {status && <div className="muted" style={{ fontSize: 12, lineHeight: 1.5 }}>{status}</div>}
         </div>
       </Card>
-    </div>
-  );
-}
-
-type FileManagerEntry = { name: string; size: bigint | number; type?: unknown; mode?: number };
-
-const FILE_MANAGER_ROOT = "/sdcard";
-
-function normalizeUserStoragePath(path: string) {
-  const raw = path.trim().replace(/\\/g, "/");
-  if (!raw) return FILE_MANAGER_ROOT;
-
-  let next: string;
-  if (raw.startsWith("/")) {
-    next = raw;
-  } else if (raw === "sdcard" || raw.startsWith("sdcard/")) {
-    next = `/${raw}`;
-  } else {
-    next = `${FILE_MANAGER_ROOT}/${raw}`;
-  }
-
-  const parts = next.replace(/\/+/g, "/").split("/").filter(Boolean);
-  const sourceParts = parts[0] === "sdcard" ? parts.slice(1) : parts;
-  const safeParts = ["sdcard"];
-  for (const part of sourceParts) {
-    if (!part || part === ".") continue;
-    if (part === "..") {
-      if (safeParts.length > 1) safeParts.pop();
-      continue;
-    }
-    safeParts.push(part);
-  }
-  return `/${safeParts.join("/")}`;
-}
-
-function joinDevicePath(base: string, name: string) {
-  return normalizeUserStoragePath(`${base.replace(/\/$/, "")}/${name}`);
-}
-
-function isDirectoryEntry(entry: FileManagerEntry) {
-  return entry.type === 4 || (typeof entry.mode === "number" && (entry.mode & 0o170000) === 0o040000);
-}
-
-function getPathSegments(path: string) {
-  const normalized = normalizeUserStoragePath(path);
-  const parts = normalized.split("/").filter(Boolean);
-  return parts.map((part, index) => ({
-    label: part,
-    path: `/${parts.slice(0, index + 1).join("/")}`
-  }));
-}
-
-function getFileIcon(entry: FileManagerEntry) {
-  if (isDirectoryEntry(entry)) return <IconFolder size={20} />;
-  const ext = entry.name.split(".").pop()?.toLowerCase() ?? "";
-  if (["apk", "apks", "xapk"].includes(ext)) return <IconAppStore size={20} />;
-  if (["jpg", "jpeg", "png", "gif", "webp", "bmp", "heic", "svg"].includes(ext)) return <IconFileImage size={20} />;
-  if (["mp3", "wav", "flac", "aac", "ogg", "m4a", "opus"].includes(ext)) return <IconFileAudio size={20} />;
-  if (["mp4", "mkv", "webm", "avi", "mov", "3gp"].includes(ext)) return <IconFileVideo size={20} />;
-  if (["zip", "rar", "7z", "tar", "gz", "xz"].includes(ext)) return <IconFileArchive size={20} />;
-  if (["js", "ts", "tsx", "jsx", "json", "xml", "html", "css", "sh", "kt", "java", "log"].includes(ext)) return <IconCode size={20} />;
-  return <IconFileText size={20} />;
-}
-
-function FileManagerScreen({
-  serial,
-  locale,
-  onNeedPermission,
-  onUpdateHeaderActions
-}: {
-  serial?: string;
-  locale: Locale;
-  onNeedPermission: () => void;
-  onUpdateHeaderActions: (actions: React.ReactNode) => void;
-}) {
-  const [path, setPath] = useState(FILE_MANAGER_ROOT);
-  const [pathDraft, setPathDraft] = useState(FILE_MANAGER_ROOT);
-  const [entries, setEntries] = useState<FileManagerEntry[]>([]);
-  const [status, setStatus] = useState(() => t(locale, "fileManager.status.ready"));
-  const [busy, setBusy] = useState(false);
-  const [pathExpanded, setPathExpanded] = useState(false);
-  const [isDraggingFile, setIsDraggingFile] = useState(false);
-  const [transfer, setTransfer] = useState<{ type: "upload" | "download"; name: string; progress: number } | null>(null);
-
-  const load = useCallback(async (targetPath = path) => {
-    if (busy) return;
-    const nextPath = normalizeUserStoragePath(targetPath);
-    setPath(nextPath);
-    setPathDraft(nextPath);
-    setBusy(true);
-    setStatus(t(locale, "fileManager.status.reading"));
-    const connection = serial ? await WebADB.getInstance().connectGranted(serial) : await WebADB.getInstance().requestDevice();
-    if (!connection) {
-      setBusy(false);
-      setStatus(t(locale, "deviceTips.status.permissionRequired"));
-      onNeedPermission();
-      return;
-    }
-    let sync: Awaited<ReturnType<typeof connection.adb.sync>> | undefined;
-    try {
-      sync = await connection.adb.sync();
-      const list = await sync.readdir(nextPath);
-      setEntries(
-        list.sort((a, b) => {
-          const aDir = isDirectoryEntry(a);
-          const bDir = isDirectoryEntry(b);
-          if (aDir !== bDir) return aDir ? -1 : 1;
-          return a.name.localeCompare(b.name);
-        })
-      );
-      setStatus(t(locale, "fileManager.status.readCount", { count: list.length }));
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : String(error));
-    } finally {
-      await sync?.dispose();
-      await connection.dispose();
-      setBusy(false);
-    }
-  }, [busy, locale, onNeedPermission, path, serial]);
-
-  useEffect(() => {
-    void load(FILE_MANAGER_ROOT);
-  }, []);
-
-  const breadcrumbs = getPathSegments(path);
-
-  const uploadFiles = useCallback(async (files: FileList | File[]) => {
-    if (transfer) return;
-    const uploadList = Array.from(files).filter((file) => file.size >= 0);
-    if (!uploadList.length) return;
-
-    setStatus(t(locale, "fileManager.status.uploadPreparing", { count: uploadList.length }));
-    const connection = serial ? await WebADB.getInstance().connectGranted(serial) : await WebADB.getInstance().requestDevice();
-    if (!connection) {
-      setStatus(t(locale, "deviceTips.status.permissionRequired"));
-      onNeedPermission();
-      return;
-    }
-
-    let sync: Awaited<ReturnType<typeof connection.adb.sync>> | undefined;
-    try {
-      sync = await connection.adb.sync();
-      for (const file of uploadList) {
-        let uploaded = 0;
-        setTransfer({ type: "upload", name: file.name, progress: 0 });
-        setStatus(t(locale, "fileManager.status.uploading", { name: file.name }));
-        const reader = file.stream().getReader();
-        const stream = new ReadableStream<Uint8Array>({
-          async pull(controller) {
-            const { done, value } = await reader.read();
-            if (done) {
-              controller.close();
-              return;
-            }
-            uploaded += value.byteLength;
-            setTransfer({ type: "upload", name: file.name, progress: file.size ? Math.round((uploaded / file.size) * 100) : 100 });
-            controller.enqueue(value);
-          },
-          cancel() {
-            return reader.cancel();
-          }
-        });
-        await sync.write({
-          filename: joinDevicePath(path, file.name),
-          file: stream as any,
-          permission: 0o644,
-          mtime: Math.floor(file.lastModified / 1000)
-        });
-      }
-      setStatus(t(locale, "fileManager.status.uploaded", { count: uploadList.length }));
-      await load(path);
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : String(error));
-    } finally {
-      setTransfer(null);
-      setIsDraggingFile(false);
-      await sync?.dispose();
-      await connection.dispose();
-    }
-  }, [load, locale, onNeedPermission, path, serial, transfer]);
-
-  const downloadEntry = useCallback(async (entry: FileManagerEntry) => {
-    if (transfer || isDirectoryEntry(entry)) return;
-    setTransfer({ type: "download", name: entry.name, progress: 0 });
-    setStatus(t(locale, "fileManager.status.downloading", { name: entry.name }));
-    const connection = serial ? await WebADB.getInstance().connectGranted(serial) : await WebADB.getInstance().requestDevice();
-    if (!connection) {
-      setTransfer(null);
-      setStatus(t(locale, "deviceTips.status.permissionRequired"));
-      onNeedPermission();
-      return;
-    }
-
-    let sync: Awaited<ReturnType<typeof connection.adb.sync>> | undefined;
-    try {
-      sync = await connection.adb.sync();
-      const total = Math.max(0, Number(entry.size));
-      const chunks: BlobPart[] = [];
-      let downloaded = 0;
-      const reader = sync.read(joinDevicePath(path, entry.name)).getReader();
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = new Uint8Array(value.byteLength);
-          chunk.set(value);
-          chunks.push(chunk.buffer);
-          downloaded += value.byteLength;
-          setTransfer({ type: "download", name: entry.name, progress: total ? Math.round((downloaded / total) * 100) : 0 });
-        }
-      } finally {
-        reader.releaseLock();
-      }
-      const blob = new Blob(chunks, { type: "application/octet-stream" });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = entry.name;
-      anchor.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setStatus(t(locale, "fileManager.status.downloaded", { name: entry.name }));
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : String(error));
-    } finally {
-      setTransfer(null);
-      await sync?.dispose();
-      await connection.dispose();
-    }
-  }, [locale, onNeedPermission, path, serial, transfer]);
-
-  useEffect(() => {
-    onUpdateHeaderActions(
-      <>
-        <IconButton
-          onClick={() => setPathExpanded((value) => !value)}
-          title={pathExpanded ? t(locale, "fileManager.path.collapse") : t(locale, "fileManager.path.expand")}
-          style={pathExpanded ? { background: "var(--color-surface-container-highest)" } : undefined}
-        >
-          <IconFolder size={20} />
-        </IconButton>
-        <IconButton onClick={() => void load(path)} title={t(locale, "common.refresh")} disabled={busy}>
-          <IconRefresh size={20} />
-        </IconButton>
-      </>
-    );
-    return () => onUpdateHeaderActions(null);
-  }, [busy, load, locale, onUpdateHeaderActions, path, pathExpanded]);
-
-  return (
-    <div
-      className="container"
-      style={{ paddingTop: 12, height: "100%", minHeight: 0, overflow: "hidden", gap: 12 }}
-    >
-      <div
-        className="customScrollbar"
-        style={{
-          flex: "0 0 auto",
-          display: "flex",
-          gap: 6,
-          alignItems: "center",
-          overflowX: "auto",
-          padding: "0 4px 2px",
-          whiteSpace: "nowrap"
-        }}
-      >
-        {breadcrumbs.map((item, index) => (
-          <React.Fragment key={item.path}>
-            {index > 0 && <span className="muted" style={{ fontSize: 12 }}>/</span>}
-            <button
-              type="button"
-              onClick={() => void load(item.path)}
-              disabled={busy || item.path === path}
-              style={{
-                border: 0,
-                background: item.path === path ? "var(--color-surface-container-high)" : "transparent",
-                color: "var(--color-on-surface)",
-                borderRadius: 999,
-                padding: "4px 8px",
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: busy || item.path === path ? "default" : "pointer",
-                flex: "0 0 auto"
-              }}
-            >
-              {item.label}
-            </button>
-          </React.Fragment>
-        ))}
-      </div>
-
-      {pathExpanded && (
-        <Card style={{ flex: "0 0 auto" }}>
-          <div style={{ padding: 14 }}>
-            <input
-              className="pathInput"
-              value={pathDraft}
-              spellCheck={false}
-              onChange={(event) => setPathDraft(event.currentTarget.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") void load(pathDraft);
-              }}
-            />
-          </div>
-        </Card>
-      )}
-
-      <div className="muted" style={{ flex: "0 0 auto", fontSize: 12, lineHeight: 1.5, padding: "0 4px" }}>
-        {status}
-      </div>
-
-      {transfer && (
-        <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", gap: 6, padding: "0 4px" }}>
-          <div className="muted" style={{ fontSize: 12 }}>
-            {transfer.type === "upload" ? t(locale, "common.upload") : t(locale, "common.download")} {transfer.name} · {transfer.progress}%
-          </div>
-          <div
-            style={{
-              height: 6,
-              borderRadius: 999,
-              background: "var(--color-surface-container-highest)",
-              overflow: "hidden"
-            }}
-          >
-            <div
-              style={{
-                width: `${Math.max(0, Math.min(100, transfer.progress))}%`,
-                height: "100%",
-                borderRadius: 999,
-                background: "var(--color-primary)",
-                transition: "width 120ms ease"
-              }}
-            />
-          </div>
-        </div>
-      )}
-
-      <div
-        className="card customScrollbar"
-        onDragOver={(event) => {
-          if (!event.dataTransfer.types.includes("Files")) return;
-          event.preventDefault();
-          setIsDraggingFile(true);
-        }}
-        onDragLeave={(event) => {
-          const related = event.relatedTarget;
-          if (related instanceof Node && event.currentTarget.contains(related)) return;
-          setIsDraggingFile(false);
-        }}
-        onDrop={(event) => {
-          event.preventDefault();
-          setIsDraggingFile(false);
-          void uploadFiles(event.dataTransfer.files);
-        }}
-        style={{
-          flex: "1 1 auto",
-          minHeight: 0,
-          overflow: "auto",
-          position: "relative",
-          outline: isDraggingFile ? "2px solid var(--color-primary)" : "none",
-          outlineOffset: -2
-        }}
-      >
-        {entries.length ? (
-          entries.map((entry) => (
-            <FileEntryRow
-              key={entry.name}
-              locale={locale}
-              entry={entry}
-              disabled={Boolean(transfer)}
-              onOpen={() => void load(joinDevicePath(path, entry.name))}
-              onDownload={() => void downloadEntry(entry)}
-            />
-          ))
-        ) : (
-          <div className="centerEmpty">{t(locale, "fileManager.empty")}</div>
-        )}
-        {isDraggingFile && (
-          <div
-            style={{
-              position: "sticky",
-              left: 0,
-              right: 0,
-              bottom: 0,
-              padding: 14,
-              background: "color-mix(in srgb, var(--color-surface-container-high) 92%, transparent)",
-              color: "var(--color-on-surface)",
-              fontSize: 13,
-              fontWeight: 800,
-              textAlign: "center",
-              backdropFilter: "blur(10px)"
-            }}
-          >
-            {t(locale, "fileManager.dropToUpload", { path })}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function FileEntryRow({
-  locale,
-  entry,
-  disabled,
-  onOpen,
-  onDownload
-}: {
-  locale: Locale;
-  entry: FileManagerEntry;
-  disabled: boolean;
-  onOpen: () => void;
-  onDownload: () => void;
-}) {
-  const [hovered, setHovered] = useState(false);
-  const isDirectory = isDirectoryEntry(entry);
-
-  return (
-    <div
-      className={["listItem", isDirectory && !disabled ? "clickable" : ""].filter(Boolean).join(" ")}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onClick={isDirectory && !disabled ? onOpen : undefined}
-    >
-      <div className="listLead">
-        <div className="listIcon">{getFileIcon(entry)}</div>
-        <div className="listTexts">
-          <div className="listTitle">{entry.name}</div>
-          <div className="listSubtitle">{isDirectory ? t(locale, "common.folder") : formatFileSize(entry.size)}</div>
-        </div>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        {!isDirectory && hovered && (
-          <button
-            className="iconBtn fileActionButton"
-            title={t(locale, "common.downloadFile")}
-            type="button"
-            disabled={disabled}
-            onClick={(event) => {
-              event.stopPropagation();
-              onDownload();
-            }}
-          >
-            <IconDownload size={18} />
-          </button>
-        )}
-        {isDirectory ? <IconChevronRight size={18} /> : null}
-      </div>
     </div>
   );
 }
@@ -1339,7 +1053,19 @@ function SettingsGeneralScreen({ locale, value, onLocale }: { locale: Locale; va
   );
 }
 
-function SettingsDeveloperScreen({ locale, enabled, onEnabled }: { locale: Locale; enabled: boolean; onEnabled: (next: boolean) => void }) {
+function SettingsDeveloperScreen({
+  locale,
+  enabled,
+  onEnabled,
+  terminalFont,
+  onTerminalFont
+}: {
+  locale: Locale;
+  enabled: boolean;
+  onEnabled: (next: boolean) => void;
+  terminalFont: string;
+  onTerminalFont: (next: string) => void;
+}) {
   return (
     <div className="container" style={{ paddingTop: 12 }}>
       <Card>
@@ -1348,6 +1074,18 @@ function SettingsDeveloperScreen({ locale, enabled, onEnabled }: { locale: Local
           title={t(locale, "developer.shizuku.title")}
           subtitle={t(locale, "developer.shizuku.subtitle")}
           action={<Switch checked={enabled} onChange={onEnabled} />}
+        />
+        <ListItem
+          icon={<IconTerminal size={20} />}
+          title={t(locale, "developer.terminalFont.title")}
+          subtitle={t(locale, "developer.terminalFont.subtitle")}
+          action={
+            <Dropdown
+              value={terminalFont}
+              onChange={onTerminalFont}
+              options={TERMINAL_FONTS.map((item) => ({ value: item.value, label: item.label }))}
+            />
+          }
         />
       </Card>
     </div>
@@ -1909,5 +1647,6 @@ function ControlScreen({
     </div>
   );
 }
+
 
 

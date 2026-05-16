@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Card, ListItem, PillButton } from "../../ui/m3";
-import { IconInfo, IconSettings } from "../../ui/icons";
+import { IconExternalLink, IconInfo, IconSettings } from "../../ui/icons";
 import { getState, Locale, ThemeMode } from "../../shared/storage";
 import { resolveTheme } from "../../shared/theme";
 import { t } from "../../shared/i18n";
@@ -50,6 +50,17 @@ export function PopupApp() {
     window.close();
   };
 
+  const openStandaloneHome = async () => {
+    await chrome.windows.create({
+      url: chrome.runtime.getURL("pages/sidepanel/index.html"),
+      type: "popup",
+      width: 980,
+      height: 720,
+      focused: true
+    });
+    window.close();
+  };
+
   return (
     <div className="page">
       <div className="container" style={{ paddingTop: 12 }}>
@@ -65,6 +76,10 @@ export function PopupApp() {
                 {t(locale, "popup.connectDevice")}
               </PillButton>
             </div>
+            <PillButton variant="secondary" onClick={openStandaloneHome}>
+              <IconExternalLink size={18} />
+              {t(locale, "popup.openStandaloneHome")}
+            </PillButton>
           </div>
         </Card>
 

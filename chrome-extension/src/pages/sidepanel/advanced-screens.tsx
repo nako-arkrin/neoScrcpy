@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+﻿import React, { useCallback, useEffect, useState } from "react";
 import { Card, ListItem, PillButton } from "../../ui/m3";
 import { IconCode, IconExternalLink, IconRefresh } from "../../ui/icons";
 import { WebADB } from "../../shared/webadb";
@@ -7,6 +7,7 @@ import {
   getShizukuStatus,
   openShizuku,
   SHIZUKU_ACTIVATE_COMMAND,
+  shellText,
   type ShizukuStatus
 } from "../../shared/androidDeviceTools";
 import type { Locale } from "../../shared/storage";
@@ -131,3 +132,193 @@ export function ShizukuAdbScreen({
     </div>
   );
 }
+
+type TerminalLine = { id: number; kind: "system" | "input" | "output" | "error"; text: string };
+
+export const TERMINAL_FONTS = [
+  { label: "Cascadia Mono", value: "\"Cascadia Mono\", \"Cascadia Code\", Consolas, monospace" },
+  { label: "JetBrains Mono", value: "\"JetBrains Mono\", \"Cascadia Mono\", Consolas, monospace" },
+  { label: "Fira Code", value: "\"Fira Code\", \"Cascadia Mono\", Consolas, monospace" },
+  { label: "Consolas", value: "Consolas, \"Cascadia Mono\", monospace" },
+  { label: "Monospace", value: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" }
+];
+
+const ANDROID_ASCII = String.raw`
+⠀⠀⠀⠀⢀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⡀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠙⢷⣤⣤⣴⣶⣶⣦⣤⣤⡾⠋⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⣴⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣦⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⣼⣿⣿⣉⣹⣿⣿⣿⣿⣏⣉⣿⣿⣧⠀⠀⠀⠀
+⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀
+`;
+
+function normalizeShellCommand(value: string) {
+  return value
+    .trim()
+    .replace(/^adb\s+shell\s+/i, "")
+    .replace(/^shell\s+/i, "");
+}
+
+export function CommandLineScreen({
+  locale,
+  serial,
+  onNeedPermission,
+  onOpenScreen,
+  terminalFont
+}: {
+  locale: Locale;
+  serial?: string;
+  onNeedPermission: () => void;
+  onOpenScreen: () => void;
+  terminalFont: string;
+}) {
+  const [command, setCommand] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [deviceInfo, setDeviceInfo] = useState({
+    status: t(locale, "terminal.status.connecting"),
+    version: "--",
+    buildId: "--"
+  });
+  const [lines, setLines] = useState<TerminalLine[]>(() => [
+    { id: Date.now(), kind: "system", text: t(locale, "terminal.status.connecting") }
+  ]);
+
+  const appendLine = useCallback((kind: TerminalLine["kind"], text: string) => {
+    setLines((current) => [...current, { id: Date.now() + current.length, kind, text }]);
+  }, []);
+
+  const withConnection = useCallback(
+    async <T,>(task: (adb: any) => Promise<T>) => {
+      const connection = serial ? await WebADB.getInstance().connectGranted(serial) : await WebADB.getInstance().requestDevice();
+      if (!connection) {
+        onNeedPermission();
+        throw new Error(t(locale, "terminal.status.permissionRequired"));
+      }
+      try {
+        return await task(connection.adb);
+      } finally {
+        await connection.dispose();
+      }
+    },
+    [locale, onNeedPermission, serial]
+  );
+
+  const refreshDeviceInfo = useCallback(async () => {
+    setDeviceInfo((current) => ({ ...current, status: t(locale, "terminal.status.connecting") }));
+    try {
+      const info = await withConnection(async (adb) => {
+        const [version, sdk, buildId] = await Promise.all([
+          shellText(adb, ["getprop", "ro.build.version.release"]).catch(() => ""),
+          shellText(adb, ["getprop", "ro.build.version.sdk"]).catch(() => ""),
+          shellText(adb, ["getprop", "ro.build.id"]).catch(() => "")
+        ]);
+        return { version: version || "--", sdk: sdk || "--", buildId: buildId || "--" };
+      });
+      setDeviceInfo({
+        status: t(locale, "terminal.status.connected"),
+        version: `Android ${info.version} / API ${info.sdk}`,
+        buildId: info.buildId
+      });
+      appendLine("system", t(locale, "terminal.status.connected"));
+    } catch (error) {
+      setDeviceInfo((current) => ({ ...current, status: t(locale, "terminal.status.disconnected") }));
+      appendLine("error", error instanceof Error ? error.message : String(error));
+    }
+  }, [appendLine, locale, withConnection]);
+
+  useEffect(() => {
+    void refreshDeviceInfo();
+  }, []);
+
+  const runCommand = useCallback(async () => {
+    const shellCommand = normalizeShellCommand(command);
+    if (!shellCommand || busy) return;
+    setCommand("");
+    setBusy(true);
+    appendLine("input", `$ ${command.trim()}`);
+    try {
+      if (/^(adb\s+)?devices?$/i.test(shellCommand)) {
+        appendLine("output", `List of devices attached\n${serial ?? "webusb-device"}\tdevice`);
+        return;
+      }
+      if (/^(adb\s+)?screen$/i.test(shellCommand)) {
+        appendLine("system", t(locale, "terminal.status.openingScreen"));
+        onOpenScreen();
+        return;
+      }
+      if (/^(adb\s+)?help$/i.test(shellCommand)) {
+        appendLine("output", t(locale, "terminal.help"));
+        return;
+      }
+      const output = await withConnection((adb) => shellText(adb, shellCommand));
+      appendLine("output", output || t(locale, "terminal.output.empty"));
+    } catch (error) {
+      appendLine("error", error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(false);
+    }
+  }, [appendLine, busy, command, locale, onOpenScreen, serial, withConnection]);
+
+  return (
+    <div
+      style={{
+        flex: 1,
+        minHeight: 0,
+        background: "#000000",
+        color: "#b8ffb8",
+        display: "flex",
+        flexDirection: "column",
+        fontFamily: terminalFont
+      }}
+    >
+      <div className="customScrollbar" style={{ flex: 1, minHeight: 0, overflow: "auto", padding: 16, whiteSpace: "pre-wrap" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, auto) 1fr", gap: 18, alignItems: "center", marginBottom: 16 }}>
+          <pre style={{ margin: 0, color: "#8fd08f", lineHeight: 1.08 }}>{ANDROID_ASCII}</pre>
+          <div style={{ lineHeight: 1.7, minWidth: 0 }}>
+            <div>{t(locale, "terminal.device.version")}: {deviceInfo.version}</div>
+            <div>{t(locale, "terminal.device.buildId")}: {deviceInfo.buildId}</div>
+            <div>{t(locale, "terminal.device.status")}: {deviceInfo.status}</div>
+          </div>
+        </div>
+        {lines.map((line) => (
+          <div
+            key={line.id}
+            style={{
+              color: line.kind === "error" ? "#ff7b72" : line.kind === "input" ? "#79c0ff" : line.kind === "system" ? "#f2cc60" : "#b8ffb8",
+              marginBottom: 8
+            }}
+          >
+            {line.text}
+          </div>
+        ))}
+      </div>
+
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          void runCommand();
+        }}
+        style={{ display: "flex", alignItems: "center", gap: 8, padding: 14 }}
+      >
+        <span style={{ color: "#79c0ff", flex: "0 0 auto" }}>$</span>
+        <input
+          value={command}
+          onChange={(event) => setCommand(event.currentTarget.value)}
+          disabled={busy}
+          placeholder={t(locale, "terminal.placeholder")}
+          spellCheck={false}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            border: 0,
+            outline: "none",
+            background: "transparent",
+            color: "#b8ffb8",
+            fontFamily: "inherit",
+            fontSize: 13
+          }}
+        />
+      </form>
+    </div>
+  );
+}
+

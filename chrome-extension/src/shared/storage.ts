@@ -14,6 +14,7 @@ export type StoredState = {
   locale: Locale;
   recentDevices: RecentDevice[];
   shizukuEnabled: boolean;
+  terminalFont: string;
   ignoredDeviceTipSerials: string[];
 };
 
@@ -27,6 +28,7 @@ const defaults: StoredState = {
   locale: "zh-CN",
   recentDevices: [],
   shizukuEnabled: false,
+  terminalFont: "\"Cascadia Mono\", \"Cascadia Code\", Consolas, monospace",
   ignoredDeviceTipSerials: []
 };
 
@@ -45,6 +47,10 @@ export async function setLocale(locale: Locale) {
 
 export async function setShizukuEnabled(shizukuEnabled: boolean) {
   await chrome.storage.local.set({ shizukuEnabled });
+}
+
+export async function setTerminalFont(terminalFont: string) {
+  await chrome.storage.local.set({ terminalFont });
 }
 
 export async function isDeviceTipIgnored(serial?: string) {
