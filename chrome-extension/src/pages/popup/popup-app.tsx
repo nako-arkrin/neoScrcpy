@@ -14,6 +14,7 @@ export function PopupApp() {
       const s = await getState();
       if (!mounted) return;
       setLocale(s.locale);
+      document.documentElement.lang = s.locale;
       const mql = window.matchMedia("(prefers-color-scheme: dark)");
       document.documentElement.dataset.theme = resolveTheme(s.themeMode, mql.matches);
       document.documentElement.dataset.page = "popup";
@@ -21,7 +22,11 @@ export function PopupApp() {
     })();
     const listener = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
       if (areaName !== "local") return;
-      if (changes.locale?.newValue) setLocale(changes.locale.newValue as Locale);
+      if (changes.locale?.newValue) {
+        const nextLocale = changes.locale.newValue as Locale;
+        document.documentElement.lang = nextLocale;
+        setLocale(nextLocale);
+      }
       if (changes.themeMode?.newValue) {
         const mql = window.matchMedia("(prefers-color-scheme: dark)");
         document.documentElement.dataset.theme = resolveTheme(changes.themeMode.newValue as ThemeMode, mql.matches);

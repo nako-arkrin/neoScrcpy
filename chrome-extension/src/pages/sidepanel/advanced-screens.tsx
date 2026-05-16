@@ -9,16 +9,20 @@ import {
   SHIZUKU_ACTIVATE_COMMAND,
   type ShizukuStatus
 } from "../../shared/androidDeviceTools";
+import type { Locale } from "../../shared/storage";
+import { t } from "../../shared/i18n";
 
 export function ShizukuAdbScreen({
+  locale,
   serial,
   onNeedPermission
 }: {
+  locale: Locale;
   serial?: string;
   onNeedPermission: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState("正在检查设备上的 Shizuku...");
+  const [status, setStatus] = useState(() => t(locale, "shizuku.status.checkingDevice"));
   const [shizuku, setShizuku] = useState<ShizukuStatus | null>(null);
 
   const withConnection = useCallback(
@@ -26,7 +30,7 @@ export function ShizukuAdbScreen({
       const connection = serial ? await WebADB.getInstance().connectGranted(serial) : await WebADB.getInstance().requestDevice();
       if (!connection) {
         onNeedPermission();
-        throw new Error("未能连接设备，请重新授权。");
+        throw new Error(t(locale, "shizuku.status.permissionRequired"));
       }
       try {
         return await task(connection.adb);
@@ -34,27 +38,27 @@ export function ShizukuAdbScreen({
         await connection.dispose();
       }
     },
-    [onNeedPermission, serial]
+    [locale, onNeedPermission, serial]
   );
 
   const check = useCallback(async () => {
     if (busy) return;
     setBusy(true);
-    setStatus("正在检查 Shizuku 是否已安装...");
+    setStatus(t(locale, "shizuku.status.checkingInstall"));
     try {
       const next = await withConnection((adb) => getShizukuStatus(adb));
       setShizuku(next);
       setStatus(
         next.installed
-          ? `已安装 Shizuku${next.versionName ? ` ${next.versionName}` : ""}。该激活命令仅适用于 Shizuku v11.2.0+。`
-          : "未检测到 Shizuku。请先安装 Shizuku 后再使用 ADB 激活。"
+          ? t(locale, "shizuku.status.installed", { version: next.versionName ? ` ${next.versionName}` : "" })
+          : t(locale, "shizuku.status.notInstalled")
       );
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error));
     } finally {
       setBusy(false);
     }
-  }, [busy, withConnection]);
+  }, [busy, locale, withConnection]);
 
   useEffect(() => {
     void check();
@@ -63,60 +67,62 @@ export function ShizukuAdbScreen({
   const openApp = useCallback(async () => {
     if (busy) return;
     setBusy(true);
-    setStatus("正在打开设备上的 Shizuku...");
+    setStatus(t(locale, "shizuku.status.opening"));
     try {
       const output = await withConnection((adb) => openShizuku(adb));
-      setStatus(output || "已请求打开 Shizuku。请在手机上确认界面已打开。");
+      setStatus(output || t(locale, "shizuku.status.opened"));
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error));
     } finally {
       setBusy(false);
     }
-  }, [busy, withConnection]);
+  }, [busy, locale, withConnection]);
 
   const activate = useCallback(async () => {
     if (busy || !shizuku?.installed) return;
     setBusy(true);
-    setStatus("正在打开 Shizuku 并执行 ADB 激活命令...");
+    setStatus(t(locale, "shizuku.status.activating"));
     try {
       const output = await withConnection((adb) => activateShizukuAdbMode(adb));
-      setStatus(output || "激活命令已执行。请回到 Shizuku 查看运行状态。");
+      setStatus(output || t(locale, "shizuku.status.activated"));
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error));
     } finally {
       setBusy(false);
     }
-  }, [busy, shizuku?.installed, withConnection]);
+  }, [busy, locale, shizuku?.installed, withConnection]);
 
   return (
     <div className="container" style={{ paddingTop: 12, gap: 14 }}>
       <Card>
         <ListItem
           icon={<IconCode size={20} />}
-          title="激活 Shizuku ADB 模式"
-          subtitle="执行 Shizuku v11.2.0+ 的 ADB 激活脚本"
+          title={t(locale, "deviceHome.shizuku.title")}
+          subtitle={t(locale, "deviceHome.shizuku.subtitle")}
         />
         <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
           <div className="muted" style={{ fontSize: 12, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
-            激活命令：adb shell {SHIZUKU_ACTIVATE_COMMAND}
+            {t(locale, "shizuku.command", { command: SHIZUKU_ACTIVATE_COMMAND })}
           </div>
           <div className="muted" style={{ fontSize: 12, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{status}</div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <PillButton variant="secondary" onClick={() => void check()} disabled={busy}>
-              <IconRefresh size={18} />重新检查
+              <IconRefresh size={18} />
+              {t(locale, "shizuku.recheck")}
             </PillButton>
             {shizuku?.installed ? (
               <>
                 <PillButton variant="secondary" onClick={() => void openApp()} disabled={busy}>
-                  打开 Shizuku
+                  {t(locale, "shizuku.open")}
                 </PillButton>
                 <PillButton onClick={() => void activate()} disabled={busy}>
-                  {busy ? "处理中..." : "执行激活"}
+                  {busy ? t(locale, "common.processing") : t(locale, "shizuku.activate")}
                 </PillButton>
               </>
             ) : (
               <PillButton onClick={() => window.open("https://shizuku.rikka.app/", "_blank")}>
-                <IconExternalLink size={18} />了解 Shizuku
+                <IconExternalLink size={18} />
+                {t(locale, "shizuku.learn")}
               </PillButton>
             )}
           </div>

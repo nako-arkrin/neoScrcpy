@@ -130,9 +130,40 @@ function delay(ms: number) {
 }
 
 async function readDeviceModel(adb: Adb): Promise<string> {
+  const getProp = async (name: string) => {
+    try {
+      const output = await adb.subprocess.noneProtocol.spawnWaitText(["getprop", name]);
+      return output.trim();
+    } catch {
+      return "";
+    }
+  };
+
   try {
-    const output = await adb.subprocess.noneProtocol.spawnWaitText(["getprop", "ro.product.model"]);
-    if (output && output.trim()) return output.trim();
+    const marketNameProps = [
+      "ro.product.marketname",
+      "ro.vendor.product.marketname",
+      "ro.product.vendor.marketname",
+      "ro.vendor.oplus.market.name",
+      "ro.oplus.market.name",
+      "ro.product.oppo_model",
+      "ro.config.marketing_name"
+    ];
+
+    for (const prop of marketNameProps) {
+      const value = await getProp(prop);
+      if (value) return value;
+    }
+
+    const [manufacturer, brand, model] = await Promise.all([
+      getProp("ro.product.manufacturer"),
+      getProp("ro.product.brand"),
+      getProp("ro.product.model")
+    ]);
+    const maker = manufacturer || brand;
+    if (maker && model && !model.toLowerCase().includes(maker.toLowerCase())) return `${maker} ${model}`;
+    if (model) return model;
+    if (maker) return maker;
   } catch (e) {
     console.warn("Failed to read device model:", e);
   }

@@ -149,6 +149,13 @@ export async function openDocumentPip(args: {
   getController: () => any | null;
   mapClientToVideo: MapFn;
   audioEnabled?: boolean;
+  labels?: {
+    back: string;
+    audioOn: string;
+    audioOff: string;
+    power: string;
+    pip: string;
+  };
   onToolbarClose?: () => void | Promise<void>;
   onClosed: () => void;
 }) {
@@ -289,7 +296,7 @@ export async function openDocumentPip(args: {
     left.className = "pipLeft";
     const backButton = doc.createElement("button");
     backButton.className = "iconBtn";
-    backButton.title = "返回";
+    backButton.title = args.labels?.back ?? "Back";
     backButton.type = "button";
     backButton.innerHTML = iconSvg("back");
     const titleEl = doc.createElement("div");
@@ -302,17 +309,17 @@ export async function openDocumentPip(args: {
     actions.className = "pipActions";
     const audioButton = doc.createElement("button");
     audioButton.className = "iconBtn";
-    audioButton.title = args.audioEnabled ? "ADB 音频已开启" : "ADB 音频已关闭";
+    audioButton.title = args.audioEnabled ? args.labels?.audioOff ?? "Disable ADB audio" : args.labels?.audioOn ?? "Enable ADB audio";
     audioButton.type = "button";
     audioButton.innerHTML = iconSvg(args.audioEnabled ? "soundOn" : "soundOff");
     const powerButton = doc.createElement("button");
     powerButton.className = "iconBtn";
-    powerButton.title = "电源";
+    powerButton.title = args.labels?.power ?? "Power";
     powerButton.type = "button";
     powerButton.innerHTML = iconSvg("power");
     const pipButton = doc.createElement("button");
     pipButton.className = "iconBtn";
-    pipButton.title = "画中画";
+    pipButton.title = args.labels?.pip ?? "PiP";
     pipButton.type = "button";
     pipButton.innerHTML = iconSvg("pip");
     actions.appendChild(audioButton);

@@ -42,6 +42,8 @@ import {
   clearRecentDevices,
   getPipResumeState,
   getState,
+  ignoreDeviceTip,
+  isDeviceTipIgnored,
   Locale,
   RecentDevice,
   setLocale,
@@ -64,6 +66,7 @@ type Screen =
   | "deviceHome"
   | "fileManager"
   | "installApp"
+  | "deviceTips"
   | "shizukuAdb"
   | "settingsMain"
   | "settingsAppearance"
@@ -161,13 +164,14 @@ export function SidePanelApp() {
     () => ({
       devices: t(locale, "nav.devices"),
       deviceHome: controlTitle || "Android Device",
-      fileManager: "文件管理",
-      installApp: "安装应用",
-      shizukuAdb: "激活 Shizuku ADB 模式",
+      fileManager: t(locale, "nav.fileManager"),
+      installApp: t(locale, "nav.installApp"),
+      deviceTips: t(locale, "nav.deviceTips"),
+      shizukuAdb: t(locale, "nav.shizukuAdb"),
       settingsMain: t(locale, "nav.settings"),
       settingsAppearance: t(locale, "nav.settingsAppearance"),
       settingsGeneral: t(locale, "nav.settingsGeneral"),
-      settingsDeveloper: "开发者选项",
+      settingsDeveloper: t(locale, "nav.settingsDeveloper"),
       settingsPrivacy: t(locale, "nav.settingsPrivacy"),
       settingsAbout: t(locale, "nav.settingsAbout"),
       control: t(locale, "nav.control"),
@@ -175,6 +179,11 @@ export function SidePanelApp() {
     }),
     [locale]
   );
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    document.title = `${titles[screen]} - neoScrcpy`;
+  }, [locale, screen, titles]);
 
   useEffect(() => {
     let mounted = true;
@@ -219,7 +228,7 @@ export function SidePanelApp() {
       setScreen("deviceHome");
       return;
     }
-    if (screen === "fileManager" || screen === "installApp" || screen === "shizukuAdb") {
+    if (screen === "fileManager" || screen === "installApp" || screen === "deviceTips" || screen === "shizukuAdb") {
       setScreen("deviceHome");
       return;
     }
@@ -265,6 +274,7 @@ export function SidePanelApp() {
   const openControl = useCallback(() => setScreen("control"), []);
   const openFileManager = useCallback(() => setScreen("fileManager"), []);
   const openInstallApp = useCallback(() => setScreen("installApp"), []);
+  const openDeviceTips = useCallback(() => setScreen("deviceTips"), []);
   const openShizukuAdb = useCallback(() => setScreen("shizukuAdb"), []);
   const openPipLauncherForSelected = useCallback(async () => {
     const device = recent.find((d) => d.serial === selectedSerial);
@@ -333,11 +343,13 @@ export function SidePanelApp() {
         )}
         {screen === "deviceHome" && (
           <DeviceHomeScreen
+            locale={locale}
             device={recent.find((d) => d.serial === selectedSerial) ?? null}
             onFileManager={openFileManager}
             onControl={openControl}
             onInstallApp={openInstallApp}
             onPip={() => void openPipLauncherForSelected()}
+            onDeviceTips={openDeviceTips}
             onShizukuAdb={openShizukuAdb}
             shizukuFeatureEnabled={shizukuFeatureEnabled}
           />
@@ -345,12 +357,20 @@ export function SidePanelApp() {
         {screen === "fileManager" && (
           <FileManagerScreen
             serial={selectedSerial ?? undefined}
+            locale={locale}
             onNeedPermission={openPermissionTab}
             onUpdateHeaderActions={setControlActions}
           />
         )}
-        {screen === "installApp" && <InstallAppScreen serial={selectedSerial ?? undefined} onNeedPermission={openPermissionTab} />}
-        {screen === "shizukuAdb" && <ShizukuAdbScreen serial={selectedSerial ?? undefined} onNeedPermission={openPermissionTab} />}
+        {screen === "installApp" && <InstallAppScreen locale={locale} serial={selectedSerial ?? undefined} onNeedPermission={openPermissionTab} />}
+        {screen === "deviceTips" && (
+          <DeviceTipsScreen
+            locale={locale}
+            device={recent.find((d) => d.serial === selectedSerial) ?? null}
+            onNeedPermission={openPermissionTab}
+          />
+        )}
+        {screen === "shizukuAdb" && <ShizukuAdbScreen locale={locale} serial={selectedSerial ?? undefined} onNeedPermission={openPermissionTab} />}
         {screen === "settingsMain" && (
           <SettingsMainScreen
             locale={locale}
@@ -364,7 +384,7 @@ export function SidePanelApp() {
           <SettingsDeveloperScreen enabled={shizukuFeatureEnabled} onEnabled={async (next) => {
             setShizukuFeatureEnabled(next);
             await setShizukuEnabled(next);
-          }} />
+          }} locale={locale} />
         )}
         {screen === "settingsPrivacy" && <SettingsPrivacyScreen locale={locale} />}
         {screen === "settingsAbout" && <SettingsAboutScreen locale={locale} />}
@@ -452,24 +472,29 @@ function DevicesScreen({
 }
 
 function DeviceHomeScreen({
+  locale,
   device,
   onFileManager,
   onControl,
   onInstallApp,
   onPip,
+  onDeviceTips,
   onShizukuAdb,
   shizukuFeatureEnabled
 }: {
+  locale: Locale;
   device: RecentDevice | null;
   onFileManager: () => void;
   onControl: () => void;
   onInstallApp: () => void;
   onPip: () => void;
+  onDeviceTips: () => void;
   onShizukuAdb: () => void;
   shizukuFeatureEnabled: boolean;
 }) {
   const title = device?.model || device?.name || "Android Device";
-  const serial = device?.serial || "未选择设备";
+  const serial = device?.serial || t(locale, "common.noDeviceSelected");
+  const hasDeviceTip = isXiaomiDeviceName(title) || isXiaomiDeviceName(device?.name);
 
   return (
     <div className="container" style={{ paddingTop: 12 }}>
@@ -483,37 +508,46 @@ function DeviceHomeScreen({
       <Card>
         <ListItem
           icon={<IconFileText size={20} />}
-          title="文件管理"
-          subtitle="浏览设备存储中的文件"
+          title={t(locale, "deviceHome.fileManager.title")}
+          subtitle={t(locale, "deviceHome.fileManager.subtitle")}
           isNav
           onClick={onFileManager}
         />
         <ListItem
           icon={<IconDevices size={20} />}
-          title="连接屏幕"
-          subtitle="打开侧边栏投屏与控制"
+          title={t(locale, "deviceHome.control.title")}
+          subtitle={t(locale, "deviceHome.control.subtitle")}
           isNav
           onClick={onControl}
         />
         <ListItem
           icon={<IconPages size={20} />}
-          title="安装应用"
-          subtitle="选择 APK 并安装到设备"
+          title={t(locale, "deviceHome.installApp.title")}
+          subtitle={t(locale, "deviceHome.installApp.subtitle")}
           isNav
           onClick={onInstallApp}
         />
         <ListItem
           icon={<IconPip size={20} />}
-          title="画中画连接"
-          subtitle="在浏览器小窗中控制设备"
+          title={t(locale, "deviceHome.pip.title")}
+          subtitle={t(locale, "deviceHome.pip.subtitle")}
           isNav
           onClick={onPip}
         />
+        {hasDeviceTip && (
+          <ListItem
+            icon={<span style={{ color: "#f97316", display: "inline-flex" }}><IconInfo size={20} /></span>}
+            title={t(locale, "deviceHome.deviceTips.title")}
+            subtitle={t(locale, "deviceHome.deviceTips.subtitle")}
+            isNav
+            onClick={onDeviceTips}
+          />
+        )}
         {shizukuFeatureEnabled && (
           <ListItem
             icon={<IconCode size={20} />}
-            title="激活 Shizuku ADB 模式"
-            subtitle="检查 Shizuku 并执行 v11.2.0+ ADB 激活命令"
+            title={t(locale, "deviceHome.shizuku.title")}
+            subtitle={t(locale, "deviceHome.shizuku.subtitle")}
             isNav
             onClick={onShizukuAdb}
           />
@@ -534,6 +568,76 @@ function formatFileSize(size: bigint | number) {
     unit += 1;
   }
   return `${next.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
+}
+
+function DeviceTipsScreen({
+  locale,
+  device,
+  onNeedPermission
+}: {
+  locale: Locale;
+  device: RecentDevice | null;
+  onNeedPermission: () => void;
+}) {
+  const [status, setStatus] = useState("");
+  const serial = device?.serial;
+
+  const openDeveloperOptions = useCallback(async () => {
+    const connection = serial ? await WebADB.getInstance().connectGranted(serial) : await WebADB.getInstance().requestDevice();
+    if (!connection) {
+      setStatus(t(locale, "deviceTips.status.permissionRequired"));
+      onNeedPermission();
+      return;
+    }
+    try {
+      await connection.adb.subprocess.noneProtocol.spawnWaitText([
+        "am",
+        "start",
+        "-a",
+        "android.settings.APPLICATION_DEVELOPMENT_SETTINGS"
+      ]);
+      setStatus(t(locale, "deviceTips.status.openedDeveloperOptions"));
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error));
+    } finally {
+      await connection.dispose();
+    }
+  }, [locale, onNeedPermission, serial]);
+
+  const ignoreTip = useCallback(async () => {
+    if (!serial) return;
+    await ignoreDeviceTip(serial);
+    setStatus(t(locale, "deviceTips.status.ignored"));
+  }, [locale, serial]);
+
+  return (
+    <div className="container" style={{ paddingTop: 12 }}>
+      <Card>
+        <ListItem
+          icon={<span style={{ color: "#f97316", display: "inline-flex" }}><IconInfo size={20} /></span>}
+          title={t(locale, "deviceHome.deviceTips.title")}
+          subtitle={t(locale, "deviceHome.deviceTips.subtitle")}
+        />
+        <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: "var(--color-on-surface)" }}>
+            {t(locale, "deviceTips.xiaomi.title")}
+          </div>
+          <div className="muted" style={{ fontSize: 13, lineHeight: 1.55 }}>
+            {t(locale, "deviceTips.xiaomi.body")}
+          </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <PillButton variant="secondary" onClick={() => void openDeveloperOptions()}>
+              {t(locale, "deviceTips.openDeveloperOptions")}
+            </PillButton>
+            <PillButton onClick={() => void ignoreTip()} disabled={!serial}>
+              {t(locale, "deviceTips.ignore")}
+            </PillButton>
+          </div>
+          {status && <div className="muted" style={{ fontSize: 12, lineHeight: 1.5 }}>{status}</div>}
+        </div>
+      </Card>
+    </div>
+  );
 }
 
 type FileManagerEntry = { name: string; size: bigint | number; type?: unknown; mode?: number };
@@ -598,17 +702,19 @@ function getFileIcon(entry: FileManagerEntry) {
 
 function FileManagerScreen({
   serial,
+  locale,
   onNeedPermission,
   onUpdateHeaderActions
 }: {
   serial?: string;
+  locale: Locale;
   onNeedPermission: () => void;
   onUpdateHeaderActions: (actions: React.ReactNode) => void;
 }) {
   const [path, setPath] = useState(FILE_MANAGER_ROOT);
   const [pathDraft, setPathDraft] = useState(FILE_MANAGER_ROOT);
   const [entries, setEntries] = useState<FileManagerEntry[]>([]);
-  const [status, setStatus] = useState("正在准备读取 /sdcard...");
+  const [status, setStatus] = useState(() => t(locale, "fileManager.status.ready"));
   const [busy, setBusy] = useState(false);
   const [pathExpanded, setPathExpanded] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
@@ -620,11 +726,11 @@ function FileManagerScreen({
     setPath(nextPath);
     setPathDraft(nextPath);
     setBusy(true);
-    setStatus("正在读取文件列表...");
+    setStatus(t(locale, "fileManager.status.reading"));
     const connection = serial ? await WebADB.getInstance().connectGranted(serial) : await WebADB.getInstance().requestDevice();
     if (!connection) {
       setBusy(false);
-      setStatus("未能连接设备，请重新授权。");
+      setStatus(t(locale, "deviceTips.status.permissionRequired"));
       onNeedPermission();
       return;
     }
@@ -640,7 +746,7 @@ function FileManagerScreen({
           return a.name.localeCompare(b.name);
         })
       );
-      setStatus(`已读取 ${list.length} 项`);
+      setStatus(t(locale, "fileManager.status.readCount", { count: list.length }));
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error));
     } finally {
@@ -648,7 +754,7 @@ function FileManagerScreen({
       await connection.dispose();
       setBusy(false);
     }
-  }, [busy, onNeedPermission, path, serial]);
+  }, [busy, locale, onNeedPermission, path, serial]);
 
   useEffect(() => {
     void load(FILE_MANAGER_ROOT);
@@ -661,10 +767,10 @@ function FileManagerScreen({
     const uploadList = Array.from(files).filter((file) => file.size >= 0);
     if (!uploadList.length) return;
 
-    setStatus(`正在连接设备，准备上传 ${uploadList.length} 个文件...`);
+    setStatus(t(locale, "fileManager.status.uploadPreparing", { count: uploadList.length }));
     const connection = serial ? await WebADB.getInstance().connectGranted(serial) : await WebADB.getInstance().requestDevice();
     if (!connection) {
-      setStatus("未能连接设备，请重新授权。");
+      setStatus(t(locale, "deviceTips.status.permissionRequired"));
       onNeedPermission();
       return;
     }
@@ -675,7 +781,7 @@ function FileManagerScreen({
       for (const file of uploadList) {
         let uploaded = 0;
         setTransfer({ type: "upload", name: file.name, progress: 0 });
-        setStatus(`正在上传 ${file.name}...`);
+        setStatus(t(locale, "fileManager.status.uploading", { name: file.name }));
         const reader = file.stream().getReader();
         const stream = new ReadableStream<Uint8Array>({
           async pull(controller) {
@@ -699,7 +805,7 @@ function FileManagerScreen({
           mtime: Math.floor(file.lastModified / 1000)
         });
       }
-      setStatus(`已上传 ${uploadList.length} 个文件。`);
+      setStatus(t(locale, "fileManager.status.uploaded", { count: uploadList.length }));
       await load(path);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error));
@@ -709,16 +815,16 @@ function FileManagerScreen({
       await sync?.dispose();
       await connection.dispose();
     }
-  }, [load, onNeedPermission, path, serial, transfer]);
+  }, [load, locale, onNeedPermission, path, serial, transfer]);
 
   const downloadEntry = useCallback(async (entry: FileManagerEntry) => {
     if (transfer || isDirectoryEntry(entry)) return;
     setTransfer({ type: "download", name: entry.name, progress: 0 });
-    setStatus(`正在下载 ${entry.name}...`);
+    setStatus(t(locale, "fileManager.status.downloading", { name: entry.name }));
     const connection = serial ? await WebADB.getInstance().connectGranted(serial) : await WebADB.getInstance().requestDevice();
     if (!connection) {
       setTransfer(null);
-      setStatus("未能连接设备，请重新授权。");
+      setStatus(t(locale, "deviceTips.status.permissionRequired"));
       onNeedPermission();
       return;
     }
@@ -750,7 +856,7 @@ function FileManagerScreen({
       anchor.download = entry.name;
       anchor.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setStatus(`已下载 ${entry.name}。`);
+      setStatus(t(locale, "fileManager.status.downloaded", { name: entry.name }));
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error));
     } finally {
@@ -758,25 +864,25 @@ function FileManagerScreen({
       await sync?.dispose();
       await connection.dispose();
     }
-  }, [onNeedPermission, path, serial, transfer]);
+  }, [locale, onNeedPermission, path, serial, transfer]);
 
   useEffect(() => {
     onUpdateHeaderActions(
       <>
         <IconButton
           onClick={() => setPathExpanded((value) => !value)}
-          title={pathExpanded ? "收起路径" : "展开路径"}
+          title={pathExpanded ? t(locale, "fileManager.path.collapse") : t(locale, "fileManager.path.expand")}
           style={pathExpanded ? { background: "var(--color-surface-container-highest)" } : undefined}
         >
           <IconFolder size={20} />
         </IconButton>
-        <IconButton onClick={() => void load(path)} title="刷新" disabled={busy}>
+        <IconButton onClick={() => void load(path)} title={t(locale, "common.refresh")} disabled={busy}>
           <IconRefresh size={20} />
         </IconButton>
       </>
     );
     return () => onUpdateHeaderActions(null);
-  }, [busy, load, onUpdateHeaderActions, path, pathExpanded]);
+  }, [busy, load, locale, onUpdateHeaderActions, path, pathExpanded]);
 
   return (
     <div
@@ -843,7 +949,7 @@ function FileManagerScreen({
       {transfer && (
         <div style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", gap: 6, padding: "0 4px" }}>
           <div className="muted" style={{ fontSize: 12 }}>
-            {transfer.type === "upload" ? "上传" : "下载"} {transfer.name} · {transfer.progress}%
+            {transfer.type === "upload" ? t(locale, "common.upload") : t(locale, "common.download")} {transfer.name} · {transfer.progress}%
           </div>
           <div
             style={{
@@ -896,6 +1002,7 @@ function FileManagerScreen({
           entries.map((entry) => (
             <FileEntryRow
               key={entry.name}
+              locale={locale}
               entry={entry}
               disabled={Boolean(transfer)}
               onOpen={() => void load(joinDevicePath(path, entry.name))}
@@ -903,7 +1010,7 @@ function FileManagerScreen({
             />
           ))
         ) : (
-          <div className="centerEmpty">暂无文件列表</div>
+          <div className="centerEmpty">{t(locale, "fileManager.empty")}</div>
         )}
         {isDraggingFile && (
           <div
@@ -921,7 +1028,7 @@ function FileManagerScreen({
               backdropFilter: "blur(10px)"
             }}
           >
-            松开鼠标上传到 {path}
+            {t(locale, "fileManager.dropToUpload", { path })}
           </div>
         )}
       </div>
@@ -930,11 +1037,13 @@ function FileManagerScreen({
 }
 
 function FileEntryRow({
+  locale,
   entry,
   disabled,
   onOpen,
   onDownload
 }: {
+  locale: Locale;
   entry: FileManagerEntry;
   disabled: boolean;
   onOpen: () => void;
@@ -954,14 +1063,14 @@ function FileEntryRow({
         <div className="listIcon">{getFileIcon(entry)}</div>
         <div className="listTexts">
           <div className="listTitle">{entry.name}</div>
-          <div className="listSubtitle">{isDirectory ? "文件夹" : formatFileSize(entry.size)}</div>
+          <div className="listSubtitle">{isDirectory ? t(locale, "common.folder") : formatFileSize(entry.size)}</div>
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         {!isDirectory && hovered && (
           <button
             className="iconBtn fileActionButton"
-            title="下载文件"
+            title={t(locale, "common.downloadFile")}
             type="button"
             disabled={disabled}
             onClick={(event) => {
@@ -978,9 +1087,9 @@ function FileEntryRow({
   );
 }
 
-function InstallAppScreen({ serial, onNeedPermission }: { serial?: string; onNeedPermission: () => void }) {
+function InstallAppScreen({ locale, serial, onNeedPermission }: { locale: Locale; serial?: string; onNeedPermission: () => void }) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [status, setStatus] = useState("请选择 APK 文件。");
+  const [status, setStatus] = useState(() => t(locale, "installApp.status.pick"));
   const [busy, setBusy] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -989,26 +1098,26 @@ function InstallAppScreen({ serial, onNeedPermission }: { serial?: string; onNee
     if (!file) return;
     if (!file.name.toLowerCase().endsWith(".apk")) {
       setSelectedFile(null);
-      setStatus("请选择 .apk 文件。");
+      setStatus(t(locale, "installApp.status.pickApk"));
       return;
     }
     setSelectedFile(file);
-    setStatus("已选择 APK，可以开始安装。");
-  }, []);
+    setStatus(t(locale, "installApp.status.ready"));
+  }, [locale]);
 
   const install = useCallback(async () => {
     if (!selectedFile || busy) return;
     if (!selectedFile.name.toLowerCase().endsWith(".apk")) {
-      setStatus("请选择 .apk 文件。");
+      setStatus(t(locale, "installApp.status.pickApk"));
       return;
     }
 
     setBusy(true);
-    setStatus("正在连接设备...");
+    setStatus(t(locale, "installApp.status.connecting"));
     const connection = serial ? await WebADB.getInstance().connectGranted(serial) : await WebADB.getInstance().requestDevice();
     if (!connection) {
       setBusy(false);
-      setStatus("未能连接设备，请重新授权。");
+      setStatus(t(locale, "deviceTips.status.permissionRequired"));
       onNeedPermission();
       return;
     }
@@ -1017,17 +1126,17 @@ function InstallAppScreen({ serial, onNeedPermission }: { serial?: string; onNee
     let sync: Awaited<ReturnType<typeof connection.adb.sync>> | undefined;
     try {
       sync = await connection.adb.sync();
-      setStatus("正在传输 APK...");
+      setStatus(t(locale, "installApp.status.transferring"));
       await sync.write({
         filename: remotePath,
         file: selectedFile.stream() as any,
         permission: 0o644,
         mtime: Math.floor(Date.now() / 1000)
       });
-      setStatus("正在安装 APK...");
+      setStatus(t(locale, "installApp.status.installing"));
       const output = await connection.adb.subprocess.noneProtocol.spawnWaitText(["pm", "install", "-r", remotePath]);
       await connection.adb.rm(remotePath, { force: true }).catch(() => undefined);
-      setStatus(output.trim() || "安装完成。");
+      setStatus(output.trim() || t(locale, "installApp.status.done"));
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error));
     } finally {
@@ -1035,7 +1144,7 @@ function InstallAppScreen({ serial, onNeedPermission }: { serial?: string; onNee
       await connection.dispose();
       setBusy(false);
     }
-  }, [busy, onNeedPermission, selectedFile, serial]);
+  }, [busy, locale, onNeedPermission, selectedFile, serial]);
 
   return (
     <div className="container" style={{ paddingTop: 12 }}>
@@ -1089,16 +1198,16 @@ function InstallAppScreen({ serial, onNeedPermission }: { serial?: string; onNee
             >
               <IconUpload size={22} />
             </span>
-            <span style={{ fontSize: 14, fontWeight: 800 }}>{selectedFile ? selectedFile.name : "拖入 APK 或点击选择"}</span>
+            <span style={{ fontSize: 14, fontWeight: 800 }}>{selectedFile ? selectedFile.name : t(locale, "installApp.dropLabel")}</span>
             <span className="muted" style={{ fontSize: 12, lineHeight: 1.5 }}>
-              支持 .apk / application/vnd.android.package-archive
+              {t(locale, "installApp.support")}
             </span>
           </button>
           <div className="muted" style={{ fontSize: 12, lineHeight: 1.5 }}>
-            {selectedFile ? `${selectedFile.name} · ${formatFileSize(selectedFile.size)}` : "未选择文件"}
+            {selectedFile ? `${selectedFile.name} · ${formatFileSize(selectedFile.size)}` : t(locale, "installApp.noFile")}
           </div>
           <PillButton onClick={() => void install()} disabled={busy || !selectedFile}>
-            {busy ? "安装中..." : "安装 APK"}
+            {busy ? t(locale, "installApp.installing") : t(locale, "installApp.install")}
           </PillButton>
           <div className="muted" style={{ fontSize: 12, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{status}</div>
         </div>
@@ -1137,8 +1246,8 @@ function SettingsMainScreen({
         />
         <ListItem
           icon={<IconCode size={20} />}
-          title="开发者选项"
-          subtitle="启用实验性 ADB 功能"
+          title={t(locale, "settingsMain.developer.title")}
+          subtitle={t(locale, "settingsMain.developer.subtitle")}
           onClick={() => onNavigate("settingsDeveloper")}
           isNav
         />
@@ -1230,14 +1339,14 @@ function SettingsGeneralScreen({ locale, value, onLocale }: { locale: Locale; va
   );
 }
 
-function SettingsDeveloperScreen({ enabled, onEnabled }: { enabled: boolean; onEnabled: (next: boolean) => void }) {
+function SettingsDeveloperScreen({ locale, enabled, onEnabled }: { locale: Locale; enabled: boolean; onEnabled: (next: boolean) => void }) {
   return (
     <div className="container" style={{ paddingTop: 12 }}>
       <Card>
         <ListItem
           icon={<IconCode size={20} />}
-          title="启用 Shizuku 功能"
-          subtitle="启用后会在设备功能页显示“激活 Shizuku ADB 模式”"
+          title={t(locale, "developer.shizuku.title")}
+          subtitle={t(locale, "developer.shizuku.subtitle")}
           action={<Switch checked={enabled} onChange={onEnabled} />}
         />
       </Card>
@@ -1433,11 +1542,16 @@ function SettingsAboutScreen({ locale }: { locale: Locale }) {
         <div className="muted" style={{ fontSize: 12, textAlign: "center", padding: "0 22px", opacity: 0.7, lineHeight: 1.5 }}>
           Designed with Material 3 Monochrome.
           <br />
-          Copyright 漏 2026 neoScrcpy Team.
+          Copyright © 2026 neoScrcpy Team.
         </div>
       </div>
     </>
   );
+}
+
+function isXiaomiDeviceName(value?: string | null) {
+  if (!value) return false;
+  return /小米|红米|xiaomi|redmi/i.test(value);
 }
 
 function ControlScreen({
@@ -1462,6 +1576,8 @@ function ControlScreen({
   const [connectedDevice, setConnectedDevice] = useState<{ serial: string; model?: string; name?: string } | null>(null);
   const [pipHandoff, setPipHandoff] = useState<{ tabId?: number; title: string; stage: "launcher" | "pip" } | null>(null);
   const [audioEnabled, setAudioEnabled] = useState(false);
+  const [xiaomiTipHidden, setXiaomiTipHidden] = useState(false);
+  const [deviceTipIgnored, setDeviceTipIgnored] = useState(false);
 
   const connect = useCallback(async (audioOverride = audioEnabled) => {
     setConnectAttempt((prev) => prev + 1);
@@ -1474,6 +1590,8 @@ function ControlScreen({
       return;
     }
     setConnectedDevice({ serial: device.serial, name: device.name, model: device.model });
+    setXiaomiTipHidden(false);
+    setDeviceTipIgnored(await isDeviceTipIgnored(device.serial));
     await onConnected({ serial: device.serial, name: device.name, model: device.model });
   }, [audioEnabled, onConnected, onNeedPermission, scrcpyConnect, serial]);
 
@@ -1548,6 +1666,27 @@ function ControlScreen({
     [connect, scrcpy]
   );
 
+  const openDeveloperOptions = useCallback(async () => {
+    try {
+      await scrcpy.adbRef.current?.subprocess.noneProtocol.spawnWaitText([
+        "am",
+        "start",
+        "-a",
+        "android.settings.APPLICATION_DEVELOPMENT_SETTINGS"
+      ]);
+    } catch (error) {
+      console.warn("Failed to open Android developer options:", error);
+    }
+  }, [scrcpy.adbRef]);
+
+  const shouldShowXiaomiTip =
+    scrcpy.isConnected &&
+    !xiaomiTipHidden &&
+    !deviceTipIgnored &&
+    (isXiaomiDeviceName(connectedDevice?.model) ||
+      isXiaomiDeviceName(connectedDevice?.name) ||
+      isXiaomiDeviceName(scrcpy.deviceModel));
+
   useEffect(() => {
     const listener = (message: any) => {
       if (message?.type === "PIP_WINDOW_OPENED") {
@@ -1586,7 +1725,7 @@ function ControlScreen({
         </IconButton>
         <IconButton
           onClick={() => void applyAudioEnabled(!audioEnabled)}
-          title={audioEnabled ? "关闭 ADB 音频" : "开启 ADB 音频"}
+          title={audioEnabled ? t(locale, "control.audioOff") : t(locale, "control.audioOn")}
         >
           {audioEnabled ? <IconSoundOn size={20} /> : <IconSoundOff size={20} />}
         </IconButton>
@@ -1610,7 +1749,7 @@ function ControlScreen({
       <div className="container" style={{ padding: 18, minHeight: 0, height: "100%", justifyContent: "center", alignItems: "center" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center", textAlign: "center" }}>
           <div className="muted" style={{ fontSize: 12, lineHeight: 1.5, maxWidth: 260 }}>
-            请在新标签页中授权设备，然后点击“打开小窗”。
+            {t(locale, "control.pipPermissionHint")}
           </div>
           <PillButton onClick={() => void restoreFromPip()}>{t(locale, "common.reconnect")}</PillButton>
         </div>
@@ -1651,7 +1790,7 @@ function ControlScreen({
               fontWeight: 800
             }}
           >
-            <span>ADB 音频</span>
+            <span>{t(locale, "control.audio")}</span>
             <Switch checked={audioEnabled} onChange={setAudioEnabled} />
           </div>
           <canvas
@@ -1734,6 +1873,35 @@ function ControlScreen({
               <PillButton onClick={() => void connect()} disabled={!WebADB.getInstance().isSupported()}>
                 {t(locale, "common.reconnect")}
               </PillButton>
+            </div>
+          </div>
+        </div>
+      )}
+      {shouldShowXiaomiTip && (
+        <div
+          style={{
+            position: "fixed",
+            left: 16,
+            right: 16,
+            bottom: 16,
+            zIndex: 21,
+            background: "var(--color-surface-container-high)",
+            borderRadius: 18,
+            boxShadow: "var(--shadow-1)"
+          }}
+        >
+          <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "var(--color-on-surface)" }}>
+              {t(locale, "deviceTips.xiaomi.title")}
+            </div>
+            <div className="muted" style={{ fontSize: 13, lineHeight: 1.55 }}>
+              {t(locale, "deviceTips.xiaomi.body")}
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <PillButton variant="secondary" onClick={() => void openDeveloperOptions()}>
+                {t(locale, "deviceTips.openDeveloperOptions")}
+              </PillButton>
+              <PillButton onClick={() => setXiaomiTipHidden(true)}>{t(locale, "deviceTips.hide")}</PillButton>
             </div>
           </div>
         </div>

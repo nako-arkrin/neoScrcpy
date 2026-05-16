@@ -14,6 +14,7 @@ export type StoredState = {
   locale: Locale;
   recentDevices: RecentDevice[];
   shizukuEnabled: boolean;
+  ignoredDeviceTipSerials: string[];
 };
 
 export type PipResumeState = {
@@ -25,7 +26,8 @@ const defaults: StoredState = {
   themeMode: "system",
   locale: "zh-CN",
   recentDevices: [],
-  shizukuEnabled: false
+  shizukuEnabled: false,
+  ignoredDeviceTipSerials: []
 };
 
 export async function getState(): Promise<StoredState> {
@@ -43,6 +45,20 @@ export async function setLocale(locale: Locale) {
 
 export async function setShizukuEnabled(shizukuEnabled: boolean) {
   await chrome.storage.local.set({ shizukuEnabled });
+}
+
+export async function isDeviceTipIgnored(serial?: string) {
+  if (!serial) return false;
+  const state = await getState();
+  return state.ignoredDeviceTipSerials.includes(serial);
+}
+
+export async function ignoreDeviceTip(serial: string) {
+  const state = await getState();
+  if (state.ignoredDeviceTipSerials.includes(serial)) return;
+  await chrome.storage.local.set({
+    ignoredDeviceTipSerials: [...state.ignoredDeviceTipSerials, serial]
+  });
 }
 
 export async function addRecentDevice(device: Omit<RecentDevice, "lastConnectedAt">) {

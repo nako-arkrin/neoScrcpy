@@ -15,12 +15,19 @@ export function OptionsApp() {
       if (!mounted) return;
       const mql = window.matchMedia("(prefers-color-scheme: dark)");
       document.documentElement.dataset.theme = resolveTheme(s.themeMode, mql.matches);
+      document.documentElement.lang = s.locale;
+      document.title = `${t(s.locale, "options.title")} - neoScrcpy`;
       setLocale(s.locale);
       setReady(true);
     })();
     const listener = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
       if (areaName !== "local") return;
-      if (changes.locale?.newValue) setLocale(changes.locale.newValue as Locale);
+      if (changes.locale?.newValue) {
+        const nextLocale = changes.locale.newValue as Locale;
+        document.documentElement.lang = nextLocale;
+        document.title = `${t(nextLocale, "options.title")} - neoScrcpy`;
+        setLocale(nextLocale);
+      }
       if (changes.themeMode?.newValue) {
         const mql = window.matchMedia("(prefers-color-scheme: dark)");
         document.documentElement.dataset.theme = resolveTheme(changes.themeMode.newValue as ThemeMode, mql.matches);

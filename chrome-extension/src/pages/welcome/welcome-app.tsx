@@ -161,6 +161,8 @@ export function WelcomeApp() {
       setThemeModeState(s.themeMode);
       themeModeRef.current = s.themeMode;
       localeRef.current = s.locale;
+      document.documentElement.lang = s.locale;
+      document.title = `${translations[s.locale].steps[0].title.replace(/\.$/, "")} - neoScrcpy`;
       update(s.themeMode);
     })();
 
@@ -169,6 +171,8 @@ export function WelcomeApp() {
       if (changes.locale?.newValue) {
         const nextLocale = changes.locale.newValue as Locale;
         localeRef.current = nextLocale;
+        document.documentElement.lang = nextLocale;
+        document.title = `${translations[nextLocale].steps[0].title.replace(/\.$/, "")} - neoScrcpy`;
         setLocaleState(nextLocale);
       }
       if (changes.themeMode?.newValue) {

@@ -76,7 +76,7 @@ export function PipLauncherApp() {
   const launchParams = useMemo(getLaunchParams, []);
   const [locale, setLocale] = useState<Locale>("zh-CN");
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("准备就绪");
+  const [message, setMessage] = useState(() => t("zh-CN", "pip.status.ready"));
   const [phase, setPhase] = useState<"idle" | "connecting" | "connected" | "pip" | "error">("idle");
   const [pipHandle, setPipHandle] = useState<{ cleanup: () => void; win?: Window } | null>(null);
   const [audioEnabled, setAudioEnabled] = useState(launchParams.audio);
@@ -91,11 +91,18 @@ export function PipLauncherApp() {
       if (!mounted) return;
       const mql = window.matchMedia("(prefers-color-scheme: dark)");
       document.documentElement.dataset.theme = resolveTheme(state.themeMode, mql.matches);
+      document.documentElement.lang = state.locale;
+      document.title = `${t(state.locale, "common.pip")} - neoScrcpy`;
       setLocale(state.locale);
     })();
     const listener = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
       if (areaName !== "local") return;
-      if (changes.locale?.newValue) setLocale(changes.locale.newValue as Locale);
+      if (changes.locale?.newValue) {
+        const nextLocale = changes.locale.newValue as Locale;
+        document.documentElement.lang = nextLocale;
+        document.title = `${t(nextLocale, "common.pip")} - neoScrcpy`;
+        setLocale(nextLocale);
+      }
       if (changes.themeMode?.newValue) {
         const mql = window.matchMedia("(prefers-color-scheme: dark)");
         document.documentElement.dataset.theme = resolveTheme(changes.themeMode.newValue as ThemeMode, mql.matches);
@@ -147,7 +154,7 @@ export function PipLauncherApp() {
         setPipHandle(null);
         setPhase("connected");
         setBusy(false);
-        setMessage("小窗已关闭。请点击“打开侧边栏”回到控制页。");
+        setMessage(t(locale, "pip.status.closed"));
         closingRef.current = false;
       }
     }
@@ -157,12 +164,19 @@ export function PipLauncherApp() {
     const canvas = scrcpy.canvasRef.current;
     if (!canvas || busy) return;
     setBusy(true);
-    setMessage("正在打开浏览器级小窗...");
+    setMessage(t(locale, "pip.status.opening"));
     const pip = await openDocumentPip({
       canvas,
       title: launchParams.title,
       getController: () => scrcpy.controllerRef.current,
       audioEnabled,
+      labels: {
+        back: t(locale, "common.back"),
+        audioOn: t(locale, "control.audioOn"),
+        audioOff: t(locale, "control.audioOff"),
+        power: t(locale, "common.power"),
+        pip: t(locale, "common.pip")
+      },
       mapClientToVideo: ({ clientX, clientY, target }) => {
         const rect = target.getBoundingClientRect();
         const size = scrcpy.getVideoSize() ?? { width: rect.width, height: rect.height };
@@ -189,14 +203,14 @@ export function PipLauncherApp() {
 
     if (!pip) {
       setPhase("error");
-      setMessage("未能打开 Document PiP。请再次点击按钮，并查看控制台日志。");
+      setMessage(t(locale, "pip.status.openFailed"));
       setBusy(false);
       return;
     }
 
     setPipHandle(pip);
     setPhase("pip");
-    setMessage("正在小窗使用设备，请不要关闭此窗口。");
+    setMessage(t(locale, "pip.status.active"));
     setBusy(false);
     await notifySidepanel("PIP_WINDOW_OPENED");
   };
@@ -205,20 +219,20 @@ export function PipLauncherApp() {
     if (busy) return;
     setBusy(true);
     setPhase("connecting");
-    setMessage("正在连接设备...");
+    setMessage(t(locale, "pip.status.connecting"));
 
     try {
       const mode = launchParams.serial ? { mode: "granted" as const, serial: launchParams.serial } : { mode: "prompt" as const };
       const device = await scrcpy.connect({ ...mode, audio: audioEnabled });
       if (!device) {
         setPhase("error");
-        setMessage(scrcpy.status || "未能建立设备连接。请确认 USB 调试授权后重试。");
+        setMessage(scrcpy.status || t(locale, "pip.status.connectFailed"));
         setBusy(false);
         return;
       }
 
       setPhase("connected");
-      setMessage("你可以安全的隐藏此页面，但请不要关闭页面。");
+      setMessage(t(locale, "pip.status.keepOpen"));
       setBusy(false);
       await openPipWindow();
     } catch (error) {
@@ -237,17 +251,17 @@ export function PipLauncherApp() {
 
   const heroTitle =
     phase === "error"
-      ? "连接错误"
+      ? t(locale, "pip.title.error")
       : phase === "connected" || phase === "pip"
-        ? "设备已连接"
-        : "连接设备并启动 PiP";
+        ? t(locale, "pip.title.connected")
+        : t(locale, "pip.title.launch");
 
   const heroDescription =
     phase === "error"
       ? message
       : phase === "connected" || phase === "pip"
-        ? "你可以安全的隐藏此页面，但请不要关闭页面。"
-        : "点击按钮后会立即申请 WebUSB/ADB 权限，连接设备，并在成功后直接打开浏览器级小窗。";
+        ? t(locale, "pip.status.keepOpen")
+        : t(locale, "pip.description.launch");
 
   return (
     <div
@@ -329,7 +343,7 @@ export function PipLauncherApp() {
               }}
               disabled={busy || !webUsbSupported}
             >
-              {phase === "connected" || phase === "pip" ? "打开小窗" : busy ? "正在处理..." : "连接设备并打开小窗"}
+              {phase === "connected" || phase === "pip" ? t(locale, "common.openPip") : busy ? t(locale, "common.processing") : t(locale, "pip.connectAndOpen")}
             </LauncherButton>
 
             {phase === "connected" && (
@@ -338,12 +352,12 @@ export function PipLauncherApp() {
                 onClick={() => {
                   void scrcpy.disconnect().then(() => {
                     setPhase("idle");
-                    setMessage("连接已断开。可以重新连接设备。");
+                    setMessage(t(locale, "pip.status.disconnected"));
                   });
                 }}
                 disabled={busy}
               >
-                断开连接
+                {t(locale, "common.disconnect")}
               </LauncherButton>
             )}
 
@@ -357,7 +371,7 @@ export function PipLauncherApp() {
                   void returnToSidepanel(true);
                 }}
               >
-                关闭小窗
+                {t(locale, "common.closePip")}
               </LauncherButton>
             )}
 
@@ -367,18 +381,18 @@ export function PipLauncherApp() {
                 void scrcpy.disconnect().finally(() => window.close());
               }}
             >
-              关闭标签页
+              {t(locale, "common.closeTab")}
             </LauncherButton>
 
             {(phase === "connected" || phase === "pip") && (
               <LauncherButton variant="secondary" onClick={() => void requestSidepanelOpen()}>
-                打开侧边栏
+                {t(locale, "common.openSidePanel")}
               </LauncherButton>
             )}
 
             <IconButton
               onClick={() => setAudioEnabled((next) => !next)}
-              title={audioEnabled ? "关闭 ADB 音频" : "开启 ADB 音频"}
+              title={audioEnabled ? t(locale, "control.audioOff") : t(locale, "control.audioOn")}
               disabled={phase !== "idle"}
               style={{
                 background: "var(--color-surface-container-high)",
@@ -399,32 +413,32 @@ export function PipLauncherApp() {
             <hr style={{ border: 0, borderTop: "1px solid var(--color-outline-variant)", margin: "0 0 42px" }} />
 
             <section>
-              <h2 style={{ margin: "0 0 28px", fontSize: 22, lineHeight: 1.25, fontWeight: 900 }}>常见问题排查</h2>
+              <h2 style={{ margin: "0 0 28px", fontSize: 22, lineHeight: 1.25, fontWeight: 900 }}>{t(locale, "pip.faq.title")}</h2>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 30 }}>
                 <div style={{ paddingLeft: 20, borderLeft: "2px solid var(--color-on-surface)" }}>
-                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>为什么没有自动弹出小窗？</h3>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{t(locale, "pip.faq.autoPip.title")}</h3>
                   <p style={{ margin: "8px 0 0", fontSize: 14, lineHeight: 1.75, color: "var(--color-on-surface-variant)" }}>
-                    Chrome 通常要求真实用户交互才能调用 Document PiP。这里会在你点击按钮后立刻完成连接和开窗，尽量减少中间步骤。
+                    {t(locale, "pip.faq.autoPip.body")}
                   </p>
                 </div>
 
                 <div style={{ paddingLeft: 20, borderLeft: "2px solid var(--color-outline-variant)" }}>
-                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>找不到设备？</h3>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{t(locale, "pip.faq.deviceMissing.title")}</h3>
                   <p style={{ margin: "8px 0 0", fontSize: 14, lineHeight: 1.75, color: "var(--color-on-surface-variant)" }}>
-                    重新插拔 USB 数据线，在手机上重新开启“USB 调试”，并确认没有其他手机助手或 adb.exe 正在占用设备。
+                    {t(locale, "pip.faq.deviceMissing.body")}
                   </p>
                 </div>
 
                 <div style={{ paddingLeft: 20, borderLeft: "2px solid var(--color-outline-variant)" }}>
-                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>此标签页可以关闭吗？</h3>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{t(locale, "pip.faq.closeTab.title")}</h3>
                   <p style={{ margin: "8px 0 0", fontSize: 14, lineHeight: 1.75, color: "var(--color-on-surface-variant)" }}>
-                    使用 PiP 时请保持此标签页打开。它负责持有 ADB 连接、视频捕获和音频播放；关闭小窗后，标签页会自动回收并恢复侧边栏。
+                    {t(locale, "pip.faq.closeTab.body")}
                   </p>
                 </div>
 
                 <div style={{ paddingLeft: 20, borderLeft: "2px solid var(--color-outline-variant)" }}>
-                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>当前权限提示</h3>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{t(locale, "pip.faq.permission.title")}</h3>
                   <p style={{ margin: "8px 0 0", fontSize: 14, lineHeight: 1.75, color: "var(--color-on-surface-variant)" }}>
                     {phase === "error" ? message : t(locale, "control.permissionHint")}
                   </p>

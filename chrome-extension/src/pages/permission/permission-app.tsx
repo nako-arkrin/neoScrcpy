@@ -76,11 +76,18 @@ export function PermissionApp() {
       if (!mounted) return;
       const mql = window.matchMedia("(prefers-color-scheme: dark)");
       document.documentElement.dataset.theme = resolveTheme(state.themeMode, mql.matches);
+      document.documentElement.lang = state.locale;
+      document.title = `${t(state.locale, "permission.title")} - neoScrcpy`;
       setLocale(state.locale);
     })();
     const listener = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
       if (areaName !== "local") return;
-      if (changes.locale?.newValue) setLocale(changes.locale.newValue as Locale);
+      if (changes.locale?.newValue) {
+        const nextLocale = changes.locale.newValue as Locale;
+        document.documentElement.lang = nextLocale;
+        document.title = `${t(nextLocale, "permission.title")} - neoScrcpy`;
+        setLocale(nextLocale);
+      }
       if (changes.themeMode?.newValue) {
         const mql = window.matchMedia("(prefers-color-scheme: dark)");
         document.documentElement.dataset.theme = resolveTheme(changes.themeMode.newValue as ThemeMode, mql.matches);
@@ -199,7 +206,7 @@ export function PermissionApp() {
               letterSpacing: 0
             }}
           >
-            连接 Android 设备
+            {t(locale, "permission.title")}
           </h1>
 
           <p
@@ -211,7 +218,7 @@ export function PermissionApp() {
               lineHeight: 1.72
             }}
           >
-            neoScrcpy 需要通过 WebUSB 申请 ADB 连接权限，用于在浏览器侧边栏中显示手机画面，并将点击与滑动等操作映射为设备控制指令。
+            {t(locale, "permission.desc")}
           </p>
 
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
@@ -234,18 +241,18 @@ export function PermissionApp() {
         <hr style={{ border: 0, borderTop: "1px solid var(--color-outline-variant)", margin: "0 0 42px" }} />
 
         <section>
-          <h2 style={{ margin: "0 0 28px", fontSize: 22, lineHeight: 1.25, fontWeight: 900 }}>常见问题排查</h2>
+          <h2 style={{ margin: "0 0 28px", fontSize: 22, lineHeight: 1.25, fontWeight: 900 }}>{t(locale, "permission.faq.title")}</h2>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 30 }}>
             <div style={{ paddingLeft: 20, borderLeft: "2px solid var(--color-on-surface)" }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>找不到设备？(重要)</h3>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{t(locale, "permission.faq.deviceMissing.title")}</h3>
               <div style={{ marginTop: 8, fontSize: 14, lineHeight: 1.75, color: "var(--color-on-surface-variant)", whiteSpace: "pre-wrap" }}>
                 {t(locale, "permission.faq.deviceMissing.body")}
               </div>
             </div>
 
             <div style={{ paddingLeft: 20, borderLeft: "2px solid var(--color-outline-variant)" }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>驱动问题 (Windows)</h3>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{t(locale, "permission.faq.driver.title")}</h3>
               <p style={{ margin: "8px 0 0", fontSize: 14, lineHeight: 1.75, color: "var(--color-on-surface-variant)" }}>
                 {t(locale, "permission.faq.driver.body")}{" "}
                 <a href="https://zadig.akeo.ie/" target="_blank" rel="noopener noreferrer" style={{ color: "var(--color-on-surface)" }}>
@@ -256,7 +263,7 @@ export function PermissionApp() {
             </div>
 
             <div style={{ paddingLeft: 20, borderLeft: "2px solid var(--color-outline-variant)" }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>其他程序占用</h3>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{t(locale, "permission.faq.other.title")}</h3>
               <p style={{ margin: "8px 0 0", fontSize: 14, lineHeight: 1.75, color: "var(--color-on-surface-variant)" }}>
                 {t(locale, "permission.faq.other.body")}
               </p>

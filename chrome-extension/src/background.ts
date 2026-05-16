@@ -1,4 +1,5 @@
 import { getState } from "./shared/storage";
+import { t } from "./shared/i18n";
 
 chrome.runtime.onInstalled.addListener(async () => {
   try {
@@ -18,7 +19,7 @@ async function updateContextMenu() {
     
     // Get current locale
     const state = await getState();
-    const title = state.locale === "zh-CN" ? "打开 neoScrcpy 侧边栏" : "Open neoScrcpy Side Panel";
+    const title = t(state.locale, "common.openSidePanel");
     
     // Create context menu
     await chrome.contextMenus.create({
