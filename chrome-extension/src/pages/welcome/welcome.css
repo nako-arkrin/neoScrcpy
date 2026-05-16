@@ -1,0 +1,103 @@
+@import "tailwindcss";
+@config "../../../tailwind.config.js";
+
+html,
+body,
+#root {
+  height: 100%;
+  overflow: auto;
+}
+
+body {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* Text Transition Animation */
+.slide-wrapper {
+  transition-property: opacity, transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 500ms;
+  will-change: opacity, transform;
+  backface-visibility: hidden;
+}
+
+.slide-enter {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.slide-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.slide-exit {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.slide-exit-active {
+  animation: slide-out 500ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes slide-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
+
+/* Hand Wave Animation */
+@keyframes hand-wave {
+  0% { transform: rotate(0deg); }
+  10% { transform: rotate(8deg); }
+  20% { transform: rotate(-6deg); }
+  30% { transform: rotate(8deg); }
+  40% { transform: rotate(-3deg); }
+  50% { transform: rotate(6deg); }
+  60% { transform: rotate(0deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.animate-wave {
+  animation: hand-wave 2.8s infinite;
+  transform-origin: 70% 70%;
+  display: inline-block;
+  transform-box: fill-box;
+}
+
+/* Fallback for tailwindcss-animate */
+@keyframes enter {
+  from {
+    opacity: var(--tw-enter-opacity, 1);
+    transform: translate3d(var(--tw-enter-translate-x, 0), var(--tw-enter-translate-y, 0), 0) scale3d(var(--tw-enter-scale, 1), var(--tw-enter-scale, 1), 1) rotate(var(--tw-enter-rotate, 0));
+  }
+}
+
+.animate-in {
+  animation-name: enter;
+  animation-duration: 150ms;
+  --tw-enter-opacity: 1;
+  --tw-enter-scale: 1;
+  --tw-enter-rotate: 0;
+  --tw-enter-translate-x: 0;
+  --tw-enter-translate-y: 0;
+}
+
+.fade-in {
+  --tw-enter-opacity: 0;
+}
+
+.zoom-in {
+  --tw-enter-scale: 0;
+}

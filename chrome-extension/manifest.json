@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "neoScrcpy",
+  "version": "0.1.1",
+  "description": "WebADB + WebScrcpy in Chrome Side Panel",
+  "action": {
+    "default_title": "neoScrcpy",
+    "default_popup": "pages/popup/index.html",
+    "default_icon": {
+      "16": "neoscrcpy.png",
+      "32": "neoscrcpy.png",
+      "48": "neoscrcpy.png",
+      "128": "neoscrcpy.png"
+    }
+  },
+  "icons": {
+    "16": "neoscrcpy.png",
+    "32": "neoscrcpy.png",
+    "48": "neoscrcpy.png",
+    "128": "neoscrcpy.png"
+  },
+  "side_panel": {
+    "default_path": "pages/sidepanel/index.html"
+  },
+  "options_page": "pages/options/index.html",
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": ["storage", "sidePanel", "tabs", "windows", "contextMenus"]
+}

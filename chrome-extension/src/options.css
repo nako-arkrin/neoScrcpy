@@ -1,0 +1,19 @@
+.container {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  padding: 16px;
+  max-width: 520px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+#saved {
+  margin-top: 12px;
+  color: #0a7d00;
+}
+

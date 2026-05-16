@@ -1,0 +1,160 @@
+├─ @types/w3c-web-usb@1.0.13
+│  ├─ licenses: MIT
+│  ├─ repository: https://github.com/DefinitelyTyped/DefinitelyTyped
+│  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@types\w3c-web-usb
+│  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@types\w3c-web-usb\LICENSE
+├─ @yume-chan/adb-credential-web@2.1.0
+│  ├─ licenses: MIT
+│  ├─ repository: https://github.com/yume-chan/ya-webadb
+│  ├─ publisher: Simon Chan
+│  ├─ email: cnsimonchan@live.com
+│  ├─ url: https://chensi.moe/blog
+│  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\adb-credential-web
+│  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\adb-credential-web\LICENSE
+├─ @yume-chan/adb-daemon-webusb@2.3.2
+│  ├─ licenses: MIT
+│  ├─ repository: https://github.com/yume-chan/ya-webadb
+│  ├─ publisher: Simon Chan
+│  ├─ email: cnsimonchan@live.com
+│  ├─ url: https://chensi.moe/blog
+│  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\adb-daemon-webusb
+│  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\adb-daemon-webusb\LICENSE
+├─ @yume-chan/adb-scrcpy@2.3.2
+│  ├─ licenses: MIT
+│  ├─ repository: https://github.com/yume-chan/ya-webadb
+│  ├─ publisher: Simon Chan
+│  ├─ email: cnsimonchan@live.com
+│  ├─ url: https://chensi.moe/blog
+│  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\adb-scrcpy
+│  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\adb-scrcpy\LICENSE
+├─ @yume-chan/adb@2.5.1
+│  ├─ licenses: MIT
+│  ├─ repository: https://github.com/yume-chan/ya-webadb
+│  ├─ publisher: Simon Chan
+│  ├─ email: cnsimonchan@live.com
+│  ├─ url: https://chensi.moe/blog
+│  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\adb
+│  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\adb\LICENSE
+├─ @yume-chan/async@4.1.3
+│  ├─ licenses: MIT
+│  ├─ repository: https://github.com/yume-chan/async
+│  ├─ publisher: Simon Chan
+│  ├─ email: cnsimonchan@live.com
+│  ├─ url: https://chensi.moe/blog
+│  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\async
+│  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\async\LICENSE
+├─ @yume-chan/event@2.0.0
+│  ├─ licenses: MIT
+│  ├─ repository: https://github.com/yume-chan/ya-webadb
+│  ├─ publisher: Simon Chan
+│  ├─ email: cnsimonchan@live.com
+│  ├─ url: https://chensi.moe/blog
+│  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\event
+│  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\event\LICENSE
+├─ @yume-chan/no-data-view@2.0.0
+│  ├─ licenses: MIT
+│  ├─ repository: https://github.com/yume-chan/ya-webadb
+│  ├─ publisher: Simon Chan
+│  ├─ email: cnsimonchan@live.com
+│  ├─ url: https://chensi.moe/blog
+│  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\no-data-view
+│  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\no-data-view\LICENSE
+├─ @yume-chan/scrcpy-decoder-tinyh264@2.1.0
+│  ├─ licenses: MIT
+│  ├─ repository: https://github.com/yume-chan/ya-webadb
+│  ├─ publisher: Simon Chan
+│  ├─ email: cnsimonchan@live.com
+│  ├─ url: https://chensi.moe/blog
+│  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\scrcpy-decoder-tinyh264
+│  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\scrcpy-decoder-tinyh264\LICENSE
+├─ @yume-chan/scrcpy-decoder-webcodecs@2.5.0
+│  ├─ licenses: MIT
+│  ├─ repository: https://github.com/yume-chan/ya-webadb
+│  ├─ publisher: Simon Chan
+│  ├─ email: cnsimonchan@live.com
+│  ├─ url: https://chensi.moe/blog
+│  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\scrcpy-decoder-webcodecs
+│  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\scrcpy-decoder-webcodecs\LICENSE
+├─ @yume-chan/scrcpy@2.3.0
+│  ├─ licenses: MIT
+│  ├─ repository: https://github.com/yume-chan/ya-webadb
+│  ├─ publisher: Simon Chan
+│  ├─ email: cnsimonchan@live.com
+│  ├─ url: https://chensi.moe/blog
+│  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\scrcpy
+│  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\scrcpy\LICENSE
+├─ @yume-chan/stream-extra@2.1.0
+│  ├─ licenses: MIT
+│  ├─ repository: https://github.com/yume-chan/ya-webadb
+│  ├─ publisher: Simon Chan
+│  ├─ email: cnsimonchan@live.com
+│  ├─ url: https://chensi.moe/blog
+│  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\stream-extra
+│  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\stream-extra\LICENSE
+├─ @yume-chan/struct@2.3.2
+│  ├─ licenses: MIT
+│  ├─ repository: https://github.com/yume-chan/ya-webadb
+│  ├─ publisher: Simon Chan
+│  ├─ email: cnsimonchan@live.com
+│  ├─ url: https://chensi.moe/blog
+│  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\struct
+│  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\@yume-chan\struct\LICENSE
+├─ js-tokens@4.0.0
+│  ├─ licenses: MIT
+│  ├─ repository: https://github.com/lydell/js-tokens
+│  ├─ publisher: Simon Lydell
+│  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\js-tokens
+│  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\js-tokens\LICENSE
+├─ loose-envify@1.4.0
+│  ├─ licenses: MIT
+│  ├─ repository: https://github.com/zertosh/loose-envify
+│  ├─ publisher: Andres Suarez
+│  ├─ email: zertosh@gmail.com
+│  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\loose-envify
+│  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\loose-envify\LICENSE
+├─ lucide-react@0.574.0
+│  ├─ licenses: ISC
+│  ├─ repository: https://github.com/lucide-icons/lucide
+│  ├─ publisher: Eric Fennis
+│  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\lucide-react
+│  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\lucide-react\LICENSE
+├─ neo-scrcpy-chrome-extension@0.1.1
+│  ├─ licenses: [1m[31mUNLICENSED[39m[22m
+│  ├─ private: true
+│  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension
+│  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\README.md
+├─ react-dom@18.3.1
+│  ├─ licenses: MIT
+│  ├─ repository: https://github.com/facebook/react
+│  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\react-dom
+│  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\react-dom\LICENSE
+├─ react@18.3.1
+│  ├─ licenses: MIT
+│  ├─ repository: https://github.com/facebook/react
+│  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\react
+│  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\react\LICENSE
+├─ scheduler@0.23.2
+│  ├─ licenses: MIT
+│  ├─ repository: https://github.com/facebook/react
+│  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\scheduler
+│  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\scheduler\LICENSE
+├─ tinyh264@0.0.7
+│  ├─ licenses: Apache-2.0
+│  ├─ repository: https://github.com/udevbe/tinyh264
+│  ├─ publisher: Erik De Rijcke
+│  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\tinyh264
+│  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\tinyh264\LICENSE
+├─ yuv-buffer@1.0.1
+│  ├─ licenses: MIT
+│  ├─ repository: https://github.com/bvibber/yuv-buffer
+│  ├─ publisher: Brooke Vibber
+│  ├─ email: bvibber@pobox.com
+│  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\yuv-buffer
+│  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\yuv-buffer\COPYING
+└─ yuv-canvas@1.3.0
+   ├─ licenses: MIT
+   ├─ repository: https://github.com/bvibber/yuv-canvas
+   ├─ publisher: Brooke Vibber
+   ├─ email: bvibber@pobox.com
+   ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\yuv-canvas
+   └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\yuv-canvas\LICENSE
