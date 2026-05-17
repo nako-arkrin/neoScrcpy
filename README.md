@@ -172,5 +172,7 @@ chrome-extension/THIRD_PARTY_LICENSES.txt
 
 本项目依赖浏览器原生 WebUSB 能力，设备访问权限由用户在 Chrome 的 USB 授权弹窗中显式授予。扩展的 `manifest.json` 不需要配置 `host_permissions` 才能使用 WebUSB。
 
+Chrome 可能会因为扩展声明了 `tabs` 权限而提示“读取浏览历史记录”。neoScrcpy 不会读取、收集或上传浏览历史记录；该权限仅用于打开扩展页面、管理扩展自身创建的页面，以及避免重复打开相同的扩展页面。
+
 ## 下载
 你可访问 [ Chrome 浏览器插件商店 ](https://chromewebstore.google.com/detail/neoscrcpy/hdeiefibhnoebfoeddkeihdblkjgifoe) 来下载安装插件。
