@@ -165,7 +165,7 @@ Chrome 扩展最终仍应通过 `chrome-extension/dist` 以“加载已解压的
 项目使用 WebADB、Yume Chan 的 ADB/scrcpy 相关库、React、Vite、Tailwind CSS 等依赖。第三方许可证信息见：
 
 ```text
-chrome-extension/THIRD_PARTY_LICENSES.txt
+docs/THIRD_PARTY_LICENSES.txt
 ```
 
 ## 说明

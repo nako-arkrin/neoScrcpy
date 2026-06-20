@@ -51,7 +51,9 @@ const zhCN = {
   "devices.recent.subtitleHas": "点击快速连接",
   "devices.recent.subtitleEmpty": "暂无历史记录",
   "devices.recent.clear": "清空最近设备",
+  "devices.recent.remove": "删除此设备",
   "devices.recent.emptyHint": "连接过的设备会出现在这里",
+  "devices.mode.fastboot": "Fastboot",
 
   "settingsMain.appearance.title": "外观 & 显示",
   "settingsMain.appearance.subtitle": "主题：{theme}",
@@ -60,7 +62,7 @@ const zhCN = {
   "settingsMain.privacy.title": "隐私与权限",
   "settingsMain.privacy.subtitle": "权限查看",
   "settingsMain.about.title": "关于项目",
-  "settingsMain.about.subtitle": "版本 v0.1.0",
+  "settingsMain.about.subtitle": "版本 v0.1.3",
   "settingsMain.developer.title": "开发者选项",
   "settingsMain.developer.subtitle": "启用实验性 ADB 功能",
 
@@ -68,6 +70,8 @@ const zhCN = {
   "appearance.theme.light": "浅色",
   "appearance.theme.system": "跟随系统",
   "appearance.theme.dark": "深色",
+  "appearance.theme.pink": "粉色",
+  "appearance.theme.deepBlue": "深蓝",
 
   "general.contextMenu.title": "右键菜单集成",
   "general.contextMenu.subtitle": "在上下文菜单中显示快捷操作（暂未实现）",
@@ -76,8 +80,12 @@ const zhCN = {
   "general.language.zhCN": "简体中文",
   "general.language.enUS": "English (US)",
 
-  "developer.shizuku.title": "启用开发者功能",
-  "developer.shizuku.subtitle": "启用后会在设备功能页显示 Shizuku 与命令行模式",
+  "developer.shizuku.title": "Shizuku",
+  "developer.shizuku.subtitle": "在设备功能页显示 Shizuku 激活入口",
+  "developer.commandLine.title": "命令行模式",
+  "developer.commandLine.subtitle": "在设备功能页显示 ADB shell 命令行入口",
+  "developer.fastbootScan.title": "Fastboot 设备扫描",
+  "developer.fastbootScan.subtitle": "在设备页扫描已授权的 Fastboot 设备",
   "developer.terminalFont.title": "命令行字体",
   "developer.terminalFont.subtitle": "选择命令行模式使用的等宽字体",
 
@@ -101,6 +109,8 @@ const zhCN = {
   "about.character.credit": "图片原作者: {author}",
   "about.section.project": "关于项目",
   "about.version.title": "版本",
+  "about.developer.enabled": "开发者选项已启用。",
+  "about.developer.hidden": "开发者选项已隐藏。",
   "about.dev.name": "Nako Arkrin",
   "about.dev.subtitle": "开发者与设计师",
   "about.section.opensource": "开源",
@@ -116,6 +126,11 @@ const zhCN = {
   "control.audio": "ADB 音频",
   "control.audioOn": "开启 ADB 音频",
   "control.audioOff": "关闭 ADB 音频",
+  "control.power.reboot": "重启设备",
+  "control.power.shutdown": "关机",
+  "control.power.bootloader": "重启至 Bootloader",
+  "control.power.fastbootd": "重启至 Fastbootd",
+  "control.power.recovery": "重启至 Recovery",
 
   "scrcpy.status.disconnected": "未连接",
   "scrcpy.status.connecting": "正在连接 ADB...",
@@ -132,11 +147,11 @@ const zhCN = {
   "popup.openStandaloneHome": "打开独立主页",
   "popup.connectDevice": "连接设备",
   "popup.version.title": "项目版本",
-  "popup.version.subtitle": "Beta Ver 0.1.0",
+  "popup.version.subtitle": "Beta Ver 0.1.3",
   "popup.settings.title": "项目设置",
   "popup.settings.subtitle": "在侧边栏中查看",
   "popup.recent.title": "最近连接的设备",
-  "popup.recent.subtitleHas": "最多显示 2 台",
+  "popup.recent.subtitleHas": "最多显示 8 台",
   "popup.recent.subtitleEmpty": "暂无",
   "popup.recent.emptyHint": "连接过的设备会显示在这里",
 
@@ -155,6 +170,10 @@ const zhCN = {
   "permission.title": "连接 Android 设备",
   "permission.desc":
     "neoScrcpy 需要通过 WebUSB 申请 ADB 连接权限，用于在浏览器侧边栏中显示手机画面，并将点击/滑动等操作映射为设备控制指令。",
+  "permission.modePicker.title": "选择连接类型",
+  "permission.modePicker.subtitle": "当前已启用 Fastboot 设备扫描，请选择要授权并连接的设备类型。",
+  "permission.modePicker.adb": "ADB 设备",
+  "permission.modePicker.fastboot": "Fastboot 设备",
   "permission.faq.title": "常见问题排查",
   "permission.faq.deviceMissing.title": "找不到设备？(重要)",
   "permission.faq.deviceMissing.body":
@@ -178,6 +197,9 @@ const zhCN = {
   "deviceHome.shizuku.subtitle": "需安装 Shizuku 后可使用",
   "deviceHome.commandLine.title": "命令行模式",
   "deviceHome.commandLine.subtitle": "发送 ADB shell 命令并查看输出",
+  "deviceHome.fastbootCommandLine.subtitle": "发送 Fastboot 命令并查看输出",
+  "deviceHome.fastbootReboot.title": "重启设备",
+  "deviceHome.fastbootReboot.subtitle": "执行 fastboot reboot",
   "deviceHome.preview": "设备屏幕预览",
 
   "deviceTips.xiaomi.title": "对于小米设备的提示",
@@ -197,11 +219,25 @@ const zhCN = {
   "fileManager.status.uploaded": "已上传 {count} 个文件。",
   "fileManager.status.downloading": "正在下载 {name}...",
   "fileManager.status.downloaded": "已下载 {name}。",
+  "fileManager.status.deleting": "正在删除 {name}...",
+  "fileManager.status.deleted": "已删除 {name}。",
+  "fileManager.status.renaming": "正在重命名 {name}...",
+  "fileManager.status.renamed": "已重命名为 {name}。",
   "fileManager.path.expand": "展开路径",
   "fileManager.path.collapse": "收起路径",
   "fileManager.empty": "暂无文件列表",
   "fileManager.dropToUpload": "松开鼠标上传到 {path}",
   "fileManager.status.cancelled": "传输已取消。",
+  "fileManager.delete.action": "删除",
+  "fileManager.delete.title": "确认删除",
+  "fileManager.delete.body": "将永久删除“{name}”。此操作不可恢复。",
+  "fileManager.delete.directoryHint": "文件夹及其中的所有内容都会被删除。",
+  "fileManager.delete.confirm": "删除",
+  "fileManager.rename.action": "重命名",
+  "fileManager.rename.title": "重命名",
+  "fileManager.rename.name": "文件名",
+  "fileManager.rename.invalid": "请输入有效名称，且不能包含 / 或 \\。",
+  "fileManager.rename.confirm": "保存",
   "fileManager.transfer.uploads": "上传任务",
   "fileManager.transfer.downloads": "下载任务",
   "fileManager.transfer.pending": "等待中",
@@ -230,6 +266,9 @@ const zhCN = {
   "shizuku.status.activating": "正在打开 Shizuku 并执行 ADB 激活命令...",
   "shizuku.status.activated": "激活命令已执行。请回到 Shizuku 查看运行状态。",
   "shizuku.command": "激活命令：adb shell {command}",
+  "shizuku.log.title": "日志",
+  "shizuku.log.show": "展开日志",
+  "shizuku.log.hide": "收起日志",
   "shizuku.recheck": "重新检查",
   "shizuku.open": "打开 Shizuku",
   "shizuku.activate": "执行激活",
@@ -242,6 +281,8 @@ const zhCN = {
   "terminal.status.disconnected": "ADB 未连接",
   "terminal.status.permissionRequired": "未能连接设备，请重新授权。",
   "terminal.status.openingScreen": "正在打开屏幕镜像页面...",
+  "terminal.fastboot.connected": "Fastboot 已连接",
+  "terminal.fastboot.help": "可用命令:\n  help                  显示此帮助\n  devices               列出当前 Fastboot 设备\n  getvar product        查看产品代号\n  reboot                重启设备\n\n示例:\n  getvar all\n  reboot bootloader\n  flashing unlock",
   "terminal.output.empty": "(无输出)",
   "terminal.help": "可用命令:\n  help / adb help        显示此帮助\n  device / devices       列出当前连接的设备\n  adb device(s)          列出当前连接的设备\n  screen / adb screen    打开屏幕镜像页面\n\nShell 命令:\n  adb shell <command>\n  shell <command>\n  <command>\n\n示例:\n  pm list packages\n  getprop ro.build.version.release\n  input keyevent 26",
   "terminal.device.version": "Android 版本",
@@ -279,7 +320,10 @@ const zhCN = {
   "error.connectFailed": "连接失败：{message}",
   "error.usbTransferInterruptedLong":
     "USB 传输中断。请检查：1. 是否有其他 ADB 程序正在运行；2. 重新插拔设备；3. 确保已在手机上授权调试。",
-  "error.usbTimeout": "USB 连接被中断或超时，请重试"
+  "error.usbTimeout": "USB 连接被中断或超时，请重试",
+  "danger.title": "高风险操作",
+  "danger.confirm": "确认执行高风险命令：{command}？",
+  "danger.confirmAction": "确认执行"
 } as const;
 
 export type I18nKey = keyof typeof zhCN;
@@ -335,7 +379,9 @@ const enUS: Record<I18nKey, string> = {
   "devices.recent.subtitleHas": "Tap to connect quickly",
   "devices.recent.subtitleEmpty": "No history",
   "devices.recent.clear": "Clear recent devices",
+  "devices.recent.remove": "Remove this device",
   "devices.recent.emptyHint": "Connected devices will appear here",
+  "devices.mode.fastboot": "Fastboot",
 
   "settingsMain.appearance.title": "Appearance & Display",
   "settingsMain.appearance.subtitle": "Theme: {theme}",
@@ -344,7 +390,7 @@ const enUS: Record<I18nKey, string> = {
   "settingsMain.privacy.title": "Privacy & Permissions",
   "settingsMain.privacy.subtitle": "View permissions",
   "settingsMain.about.title": "About",
-  "settingsMain.about.subtitle": "Version v0.1.0",
+  "settingsMain.about.subtitle": "Version v0.1.3",
   "settingsMain.developer.title": "Developer options",
   "settingsMain.developer.subtitle": "Enable experimental ADB features",
 
@@ -352,6 +398,8 @@ const enUS: Record<I18nKey, string> = {
   "appearance.theme.light": "Light",
   "appearance.theme.system": "System",
   "appearance.theme.dark": "Dark",
+  "appearance.theme.pink": "Pink",
+  "appearance.theme.deepBlue": "Deep blue",
 
   "general.contextMenu.title": "Context menu integration",
   "general.contextMenu.subtitle": "Show quick actions in the context menu (not implemented)",
@@ -360,8 +408,12 @@ const enUS: Record<I18nKey, string> = {
   "general.language.zhCN": "简体中文",
   "general.language.enUS": "English (US)",
 
-  "developer.shizuku.title": "Enable developer features",
-  "developer.shizuku.subtitle": "Shows Shizuku and command line mode on the device tools page",
+  "developer.shizuku.title": "Shizuku",
+  "developer.shizuku.subtitle": "Show the Shizuku activation entry on the device tools page",
+  "developer.commandLine.title": "Command line mode",
+  "developer.commandLine.subtitle": "Show the ADB shell command line entry on the device tools page",
+  "developer.fastbootScan.title": "Fastboot device scanning",
+  "developer.fastbootScan.subtitle": "Scan granted Fastboot devices on the devices page",
   "developer.terminalFont.title": "Command line font",
   "developer.terminalFont.subtitle": "Choose the monospace font used by command line mode",
 
@@ -385,6 +437,8 @@ const enUS: Record<I18nKey, string> = {
   "about.character.credit": "Image credit: {author}",
   "about.section.project": "Project",
   "about.version.title": "Version",
+  "about.developer.enabled": "Developer options enabled.",
+  "about.developer.hidden": "Developer options hidden.",
   "about.dev.name": "Nako Arkrin",
   "about.dev.subtitle": "Developer & Designer",
   "about.section.opensource": "Open source",
@@ -400,6 +454,11 @@ const enUS: Record<I18nKey, string> = {
   "control.audio": "ADB audio",
   "control.audioOn": "Enable ADB audio",
   "control.audioOff": "Disable ADB audio",
+  "control.power.reboot": "Reboot device",
+  "control.power.shutdown": "Power off",
+  "control.power.bootloader": "Reboot to Bootloader",
+  "control.power.fastbootd": "Reboot to Fastbootd",
+  "control.power.recovery": "Reboot to Recovery",
 
   "scrcpy.status.disconnected": "Disconnected",
   "scrcpy.status.connecting": "Connecting to ADB...",
@@ -416,11 +475,11 @@ const enUS: Record<I18nKey, string> = {
   "popup.openStandaloneHome": "Open standalone home",
   "popup.connectDevice": "Connect device",
   "popup.version.title": "Version",
-  "popup.version.subtitle": "Beta Ver 0.1.0",
+  "popup.version.subtitle": "Beta Ver 0.1.3",
   "popup.settings.title": "Settings",
   "popup.settings.subtitle": "Open in side panel",
   "popup.recent.title": "Recently connected devices",
-  "popup.recent.subtitleHas": "Up to 2 devices",
+  "popup.recent.subtitleHas": "Up to 8 devices",
   "popup.recent.subtitleEmpty": "None",
   "popup.recent.emptyHint": "Connected devices will appear here",
 
@@ -439,6 +498,10 @@ const enUS: Record<I18nKey, string> = {
   "permission.title": "Connect Android device",
   "permission.desc":
     "neoScrcpy uses WebUSB to request ADB permission, mirror your phone in the browser side panel, and map clicks/swipes to control commands.",
+  "permission.modePicker.title": "Choose connection type",
+  "permission.modePicker.subtitle": "Fastboot device scanning is enabled. Choose which device type to authorize and connect.",
+  "permission.modePicker.adb": "ADB device",
+  "permission.modePicker.fastboot": "Fastboot device",
   "permission.faq.title": "Troubleshooting",
   "permission.faq.deviceMissing.title": "Can't find your device? (Important)",
   "permission.faq.deviceMissing.body":
@@ -462,6 +525,9 @@ const enUS: Record<I18nKey, string> = {
   "deviceHome.shizuku.subtitle": "Requires Shizuku to be installed",
   "deviceHome.commandLine.title": "Command line mode",
   "deviceHome.commandLine.subtitle": "Send ADB shell commands and inspect output",
+  "deviceHome.fastbootCommandLine.subtitle": "Send Fastboot commands and inspect output",
+  "deviceHome.fastbootReboot.title": "Reboot device",
+  "deviceHome.fastbootReboot.subtitle": "Run fastboot reboot",
   "deviceHome.preview": "Device screen preview",
 
   "deviceTips.xiaomi.title": "Tip for Xiaomi devices",
@@ -481,11 +547,25 @@ const enUS: Record<I18nKey, string> = {
   "fileManager.status.uploaded": "Uploaded {count} files.",
   "fileManager.status.downloading": "Downloading {name}...",
   "fileManager.status.downloaded": "Downloaded {name}.",
+  "fileManager.status.deleting": "Deleting {name}...",
+  "fileManager.status.deleted": "Deleted {name}.",
+  "fileManager.status.renaming": "Renaming {name}...",
+  "fileManager.status.renamed": "Renamed to {name}.",
   "fileManager.path.expand": "Expand path",
   "fileManager.path.collapse": "Collapse path",
   "fileManager.empty": "No files listed",
   "fileManager.dropToUpload": "Release to upload to {path}",
   "fileManager.status.cancelled": "Transfer cancelled.",
+  "fileManager.delete.action": "Delete",
+  "fileManager.delete.title": "Confirm deletion",
+  "fileManager.delete.body": "This will permanently delete \"{name}\". This action cannot be undone.",
+  "fileManager.delete.directoryHint": "The folder and all of its contents will be deleted.",
+  "fileManager.delete.confirm": "Delete",
+  "fileManager.rename.action": "Rename",
+  "fileManager.rename.title": "Rename",
+  "fileManager.rename.name": "Name",
+  "fileManager.rename.invalid": "Enter a valid name without / or \\.",
+  "fileManager.rename.confirm": "Save",
   "fileManager.transfer.uploads": "Uploads",
   "fileManager.transfer.downloads": "Downloads",
   "fileManager.transfer.pending": "Pending",
@@ -514,6 +594,9 @@ const enUS: Record<I18nKey, string> = {
   "shizuku.status.activating": "Opening Shizuku and running the ADB activation command...",
   "shizuku.status.activated": "Activation command executed. Return to Shizuku to check its running status.",
   "shizuku.command": "Activation command: adb shell {command}",
+  "shizuku.log.title": "Log",
+  "shizuku.log.show": "Show log",
+  "shizuku.log.hide": "Hide log",
   "shizuku.recheck": "Recheck",
   "shizuku.open": "Open Shizuku",
   "shizuku.activate": "Activate",
@@ -526,6 +609,8 @@ const enUS: Record<I18nKey, string> = {
   "terminal.status.disconnected": "ADB disconnected",
   "terminal.status.permissionRequired": "Unable to connect to the device. Please authorize it again.",
   "terminal.status.openingScreen": "Opening screen mirroring...",
+  "terminal.fastboot.connected": "Fastboot connected",
+  "terminal.fastboot.help": "Available commands:\n  help                  Show this help\n  devices               List the current Fastboot device\n  getvar product        Show product code\n  reboot                Reboot device\n\nExamples:\n  getvar all\n  reboot bootloader\n  flashing unlock",
   "terminal.output.empty": "(no output)",
   "terminal.help": "Available commands:\n  help / adb help        Show this help\n  device / devices       List the current connected device\n  adb device(s)          List the current connected device\n  screen / adb screen    Open screen mirroring\n\nShell commands:\n  adb shell <command>\n  shell <command>\n  <command>\n\nExamples:\n  pm list packages\n  getprop ro.build.version.release\n  input keyevent 26",
   "terminal.device.version": "Android version",
@@ -563,7 +648,10 @@ const enUS: Record<I18nKey, string> = {
   "error.connectFailed": "Connection failed: {message}",
   "error.usbTransferInterruptedLong":
     "USB transfer interrupted. Check: 1) no other ADB programs are running; 2) replug the device; 3) confirm USB debugging is authorized on the phone.",
-  "error.usbTimeout": "USB connection was interrupted or timed out. Please retry."
+  "error.usbTimeout": "USB connection was interrupted or timed out. Please retry.",
+  "danger.title": "High-risk operation",
+  "danger.confirm": "Confirm high-risk command: {command}?",
+  "danger.confirmAction": "Confirm"
 };
 
 const messages: Record<Locale, Record<I18nKey, string>> = {
@@ -574,6 +662,8 @@ const messages: Record<Locale, Record<I18nKey, string>> = {
 export function formatThemeLabel(locale: Locale, themeMode: ThemeMode) {
   if (themeMode === "light") return t(locale, "appearance.theme.light");
   if (themeMode === "dark") return t(locale, "appearance.theme.dark");
+  if (themeMode === "pink") return t(locale, "appearance.theme.pink");
+  if (themeMode === "deepBlue") return t(locale, "appearance.theme.deepBlue");
   return t(locale, "appearance.theme.system");
 }
 

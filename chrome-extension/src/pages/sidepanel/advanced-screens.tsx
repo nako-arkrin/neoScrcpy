@@ -1,7 +1,8 @@
 ﻿import React, { useCallback, useEffect, useState } from "react";
 import { Card, ListItem, PillButton } from "../../ui/m3";
-import { IconCode, IconExternalLink, IconRefresh } from "../../ui/icons";
+import { IconChevronRight, IconExternalLink, IconRefresh, IconShizuku } from "../../ui/icons";
 import { WebADB } from "../../shared/webadb";
+import { WebFastboot, type FastbootConnection } from "../../shared/fastboot";
 import {
   activateShizukuAdbMode,
   getShizukuStatus,
@@ -12,6 +13,7 @@ import {
 } from "../../shared/androidDeviceTools";
 import type { Locale } from "../../shared/storage";
 import { t } from "../../shared/i18n";
+import { useDangerConfirm } from "../../shared/useDangerConfirm";
 
 export function ShizukuAdbScreen({
   locale,
@@ -25,6 +27,7 @@ export function ShizukuAdbScreen({
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState(() => t(locale, "shizuku.status.checkingDevice"));
   const [shizuku, setShizuku] = useState<ShizukuStatus | null>(null);
+  const [logExpanded, setLogExpanded] = useState(false);
 
   const withConnection = useCallback(
     async <T,>(task: (adb: any) => Promise<T>) => {
@@ -97,15 +100,54 @@ export function ShizukuAdbScreen({
     <div className="container" style={{ paddingTop: 12, gap: 14 }}>
       <Card>
         <ListItem
-          icon={<IconCode size={20} />}
+          icon={<IconShizuku size={22} />}
           title={t(locale, "deviceHome.shizuku.title")}
           subtitle={t(locale, "deviceHome.shizuku.subtitle")}
         />
         <div style={{ padding: "0 16px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
-          <div className="muted" style={{ fontSize: 12, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
-            {t(locale, "shizuku.command", { command: SHIZUKU_ACTIVATE_COMMAND })}
+          <div>
+            <button
+              type="button"
+              title={logExpanded ? t(locale, "shizuku.log.hide") : t(locale, "shizuku.log.show")}
+              onClick={() => setLogExpanded((value) => !value)}
+              style={{
+                width: "100%",
+                border: 0,
+                borderRadius: 14,
+                padding: "10px 12px",
+                background: "var(--color-surface-container-highest)",
+                color: "var(--color-on-surface)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                cursor: "pointer",
+                font: "inherit",
+                fontSize: 13,
+                fontWeight: 750
+              }}
+            >
+              <span>{t(locale, "shizuku.log.title")}</span>
+              <span style={{ display: "inline-flex", transform: logExpanded ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 150ms ease" }}>
+                <IconChevronRight size={18} />
+              </span>
+            </button>
+            {logExpanded && (
+              <div
+                className="muted"
+                style={{
+                  marginTop: 10,
+                  fontSize: 12,
+                  lineHeight: 1.6,
+                  whiteSpace: "pre-wrap",
+                  overflowWrap: "anywhere"
+                }}
+              >
+                {t(locale, "shizuku.command", { command: SHIZUKU_ACTIVATE_COMMAND })}
+                {"\n\n"}
+                {status}
+              </div>
+            )}
           </div>
-          <div className="muted" style={{ fontSize: 12, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{status}</div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <PillButton variant="secondary" onClick={() => void check()} disabled={busy}>
               <IconRefresh size={18} />
@@ -158,18 +200,29 @@ function normalizeShellCommand(value: string) {
     .replace(/^shell\s+/i, "");
 }
 
+function normalizeFastbootCommand(value: string) {
+  return value.trim().replace(/^fastboot\s+/i, "");
+}
+
+function isHighRiskFastbootCommand(command: string) {
+  const value = normalizeFastbootCommand(command).toLowerCase();
+  return value === "reboot bootloader" || value === "reboot recovery" || value === "flashing unlock";
+}
+
 export function CommandLineScreen({
   locale,
   serial,
   onNeedPermission,
   onOpenScreen,
-  terminalFont
+  terminalFont,
+  mode = "adb"
 }: {
   locale: Locale;
   serial?: string;
   onNeedPermission: () => void;
   onOpenScreen: () => void;
   terminalFont: string;
+  mode?: "adb" | "fastboot";
 }) {
   const [command, setCommand] = useState("");
   const [busy, setBusy] = useState(false);
@@ -181,6 +234,7 @@ export function CommandLineScreen({
   const [lines, setLines] = useState<TerminalLine[]>(() => [
     { id: Date.now(), kind: "system", text: t(locale, "terminal.status.connecting") }
   ]);
+  const { confirmDanger, dangerConfirmDialog } = useDangerConfirm(locale);
 
   const appendLine = useCallback((kind: TerminalLine["kind"], text: string) => {
     setLines((current) => [...current, { id: Date.now() + current.length, kind, text }]);
@@ -202,9 +256,39 @@ export function CommandLineScreen({
     [locale, onNeedPermission, serial]
   );
 
+  const withFastbootConnection = useCallback(
+    async <T,>(task: (fastboot: FastbootConnection) => Promise<T>) => {
+      const connection = serial ? await WebFastboot.getInstance().connectGranted(serial) : await WebFastboot.getInstance().requestDevice();
+      if (!connection) {
+        onNeedPermission();
+        throw new Error(t(locale, "terminal.status.permissionRequired"));
+      }
+      try {
+        return await task(connection);
+      } finally {
+        await connection.dispose();
+      }
+    },
+    [locale, onNeedPermission, serial]
+  );
+
   const refreshDeviceInfo = useCallback(async () => {
     setDeviceInfo((current) => ({ ...current, status: t(locale, "terminal.status.connecting") }));
     try {
+      if (mode === "fastboot") {
+        const info = await withFastbootConnection(async (fastboot) => {
+          const product = await fastboot.execute("getvar product").catch(() => "");
+          const version = await fastboot.execute("getvar version").catch(() => "");
+          return { product: product || fastboot.model || "--", version: version || "--" };
+        });
+        setDeviceInfo({
+          status: t(locale, "terminal.status.connected"),
+          version: `Fastboot ${info.version}`,
+          buildId: info.product
+        });
+        appendLine("system", t(locale, "terminal.fastboot.connected"));
+        return;
+      }
       const info = await withConnection(async (adb) => {
         const [version, sdk, buildId] = await Promise.all([
           shellText(adb, ["getprop", "ro.build.version.release"]).catch(() => ""),
@@ -223,19 +307,36 @@ export function CommandLineScreen({
       setDeviceInfo((current) => ({ ...current, status: t(locale, "terminal.status.disconnected") }));
       appendLine("error", error instanceof Error ? error.message : String(error));
     }
-  }, [appendLine, locale, withConnection]);
+  }, [appendLine, locale, mode, withConnection, withFastbootConnection]);
 
   useEffect(() => {
     void refreshDeviceInfo();
   }, []);
 
   const runCommand = useCallback(async () => {
-    const shellCommand = normalizeShellCommand(command);
+    const shellCommand = mode === "fastboot" ? normalizeFastbootCommand(command) : normalizeShellCommand(command);
     if (!shellCommand || busy) return;
     setCommand("");
     setBusy(true);
     appendLine("input", `$ ${command.trim()}`);
     try {
+      if (mode === "fastboot") {
+        if (/^help$/i.test(shellCommand)) {
+          appendLine("output", t(locale, "terminal.fastboot.help"));
+          return;
+        }
+        if (/^devices?$/i.test(shellCommand)) {
+          appendLine("output", `List of devices attached\n${serial ?? "webusb-fastboot"}\tfastboot`);
+          return;
+        }
+        if (isHighRiskFastbootCommand(shellCommand) && !(await confirmDanger(shellCommand))) {
+          appendLine("system", t(locale, "common.cancelled"));
+          return;
+        }
+        const output = await withFastbootConnection((fastboot) => fastboot.execute(shellCommand));
+        appendLine("output", output || t(locale, "terminal.output.empty"));
+        return;
+      }
       if (/^(adb\s+)?devices?$/i.test(shellCommand)) {
         appendLine("output", `List of devices attached\n${serial ?? "webusb-device"}\tdevice`);
         return;
@@ -256,7 +357,7 @@ export function CommandLineScreen({
     } finally {
       setBusy(false);
     }
-  }, [appendLine, busy, command, locale, onOpenScreen, serial, withConnection]);
+  }, [appendLine, busy, command, confirmDanger, locale, mode, onOpenScreen, serial, withConnection, withFastbootConnection]);
 
   return (
     <div
@@ -318,6 +419,7 @@ export function CommandLineScreen({
           }}
         />
       </form>
+      {dangerConfirmDialog}
     </div>
   );
 }

@@ -13,7 +13,10 @@ import {
   IconFileVideo,
   IconFolder,
   IconRefresh,
-  IconUpload
+  IconUpload,
+  IconWarning,
+  IconDelete,
+  IconEdit
 } from "../../ui/icons";
 import type { Locale } from "../../shared/storage";
 import { t } from "../../shared/i18n";
@@ -24,6 +27,8 @@ type TransferKind = "upload" | "download";
 type TransferStatus = "pending" | "active" | "done" | "cancelled" | "error";
 type TransferTask = { id: string; kind: TransferKind; name: string; progress: number; status: TransferStatus };
 type CancelHandle = { id: string; cancelled: boolean; cancel?: () => void | Promise<void> };
+type DeleteTarget = { entry: FileManagerEntry; path: string; isDirectory: boolean };
+type RenameTarget = { entry: FileManagerEntry; path: string };
 
 const FILE_MANAGER_ROOT = "/sdcard";
 const CANCELLED_TRANSFER = "__neoScrcpy_transfer_cancelled__";
@@ -58,6 +63,11 @@ function normalizeUserStoragePath(path: string) {
 
 function joinDevicePath(base: string, name: string) {
   return normalizeUserStoragePath(`${base.replace(/\/$/, "")}/${name}`);
+}
+
+function isValidEntryName(name: string) {
+  const next = name.trim();
+  return Boolean(next) && !next.includes("/") && !next.includes("\\");
 }
 
 function isDirectoryEntry(entry: FileManagerEntry) {
@@ -128,6 +138,10 @@ export function FileManagerScreen({
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [transfers, setTransfers] = useState<TransferTask[]>([]);
   const [panelKind, setPanelKind] = useState<TransferKind | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [renameError, setRenameError] = useState("");
   const cancelRef = useRef<CancelHandle | null>(null);
   const activeTransfer = transfers.find((task) => task.status === "active") ?? null;
 
@@ -214,6 +228,9 @@ export function FileManagerScreen({
     }
 
     let sync: Awaited<ReturnType<typeof connection.adb.sync>> | undefined;
+    let reloadAfterCleanup = false;
+    let completedUploads = 0;
+    let activeUploadTaskId: string | null = null;
     try {
       sync = await connection.adb.sync();
       for (let index = 0; index < uploadList.length; index += 1) {
@@ -223,6 +240,7 @@ export function FileManagerScreen({
         const reader = file.stream().getReader();
         const handle: CancelHandle = { id: task.id, cancelled: false, cancel: () => reader.cancel() };
         cancelRef.current = handle;
+        activeUploadTaskId = task.id;
         updateTask(task.id, { status: "active", progress: 0 });
         setStatus(t(locale, "fileManager.status.uploading", { name: file.name }));
 
@@ -250,21 +268,37 @@ export function FileManagerScreen({
           mtime: Math.floor(file.lastModified / 1000)
         });
         updateTask(task.id, { status: "done", progress: 100 });
+        completedUploads += 1;
+        activeUploadTaskId = null;
       }
       setStatus(t(locale, "fileManager.status.uploaded", { count: uploadList.length }));
-      await load(path);
+      reloadAfterCleanup = true;
     } catch (error) {
       if (isCancelledTransfer(error) || cancelRef.current?.cancelled) {
         setStatus(t(locale, "fileManager.status.cancelled"));
       } else {
-        if (cancelRef.current) updateTask(cancelRef.current.id, { status: "error" });
-        setStatus(error instanceof Error ? error.message : String(error));
+        if (completedUploads === uploadList.length) {
+          setStatus(t(locale, "fileManager.status.uploaded", { count: uploadList.length }));
+          reloadAfterCleanup = true;
+        } else {
+          if (activeUploadTaskId) updateTask(activeUploadTaskId, { status: "error" });
+          setStatus(error instanceof Error ? error.message : String(error));
+        }
       }
     } finally {
       cancelRef.current = null;
       setIsDraggingFile(false);
-      await sync?.dispose();
-      await connection.dispose();
+      try {
+        await sync?.dispose();
+      } catch (error) {
+        console.warn("[neoScrcpy:fileManager] failed to dispose sync after upload", error);
+      }
+      try {
+        await connection.dispose();
+      } catch (error) {
+        console.warn("[neoScrcpy:fileManager] failed to dispose connection after upload", error);
+      }
+      if (reloadAfterCleanup) await load(path);
     }
   }, [activeTransfer, load, locale, onNeedPermission, path, serial, updateTask]);
 
@@ -337,6 +371,90 @@ export function FileManagerScreen({
       await connection.dispose();
     }
   }, [activeTransfer, locale, onNeedPermission, path, serial, updateTask]);
+
+  const confirmDeleteEntry = useCallback((entry: FileManagerEntry) => {
+    if (busy || activeTransfer) return;
+    setDeleteTarget({
+      entry,
+      path: joinDevicePath(path, entry.name),
+      isDirectory: isDirectoryEntry(entry)
+    });
+  }, [activeTransfer, busy, path]);
+
+  const confirmRenameEntry = useCallback((entry: FileManagerEntry) => {
+    if (busy || activeTransfer) return;
+    setRenameTarget({ entry, path: joinDevicePath(path, entry.name) });
+    setRenameDraft(entry.name);
+    setRenameError("");
+  }, [activeTransfer, busy, path]);
+
+  const deleteEntry = useCallback(async () => {
+    const target = deleteTarget;
+    if (!target || busy || activeTransfer) return;
+    setDeleteTarget(null);
+    setBusy(true);
+    setStatus(t(locale, "fileManager.status.deleting", { name: target.entry.name }));
+
+    const connection = serial ? await WebADB.getInstance().connectGranted(serial) : await WebADB.getInstance().requestDevice();
+    if (!connection) {
+      setBusy(false);
+      setStatus(t(locale, "deviceTips.status.permissionRequired"));
+      onNeedPermission();
+      return;
+    }
+
+    let reloadAfterCleanup = false;
+    try {
+      await connection.adb.subprocess.noneProtocol.spawnWaitText(["rm", "-rf", target.path]);
+      setStatus(t(locale, "fileManager.status.deleted", { name: target.entry.name }));
+      reloadAfterCleanup = true;
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error));
+    } finally {
+      await connection.dispose();
+      setBusy(false);
+      if (reloadAfterCleanup) await load(path);
+    }
+  }, [activeTransfer, busy, deleteTarget, load, locale, onNeedPermission, path, serial]);
+
+  const renameEntry = useCallback(async () => {
+    const target = renameTarget;
+    const nextName = renameDraft.trim();
+    if (!target || busy || activeTransfer) return;
+    if (!isValidEntryName(nextName)) {
+      setRenameError(t(locale, "fileManager.rename.invalid"));
+      return;
+    }
+    if (nextName === target.entry.name) {
+      setRenameTarget(null);
+      return;
+    }
+
+    setRenameTarget(null);
+    setBusy(true);
+    setStatus(t(locale, "fileManager.status.renaming", { name: target.entry.name }));
+
+    const connection = serial ? await WebADB.getInstance().connectGranted(serial) : await WebADB.getInstance().requestDevice();
+    if (!connection) {
+      setBusy(false);
+      setStatus(t(locale, "deviceTips.status.permissionRequired"));
+      onNeedPermission();
+      return;
+    }
+
+    let reloadAfterCleanup = false;
+    try {
+      await connection.adb.subprocess.noneProtocol.spawnWaitText(["mv", target.path, joinDevicePath(path, nextName)]);
+      setStatus(t(locale, "fileManager.status.renamed", { name: nextName }));
+      reloadAfterCleanup = true;
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : String(error));
+    } finally {
+      await connection.dispose();
+      setBusy(false);
+      if (reloadAfterCleanup) await load(path);
+    }
+  }, [activeTransfer, busy, load, locale, onNeedPermission, path, renameDraft, renameTarget, serial]);
 
   useEffect(() => {
     onUpdateHeaderActions(
@@ -477,6 +595,8 @@ export function FileManagerScreen({
               disabled={isTransferring}
               onOpen={() => void load(joinDevicePath(path, entry.name))}
               onDownload={() => void downloadEntry(entry)}
+              onRename={() => confirmRenameEntry(entry)}
+              onDelete={() => confirmDeleteEntry(entry)}
             />
           ))
         ) : (
@@ -501,6 +621,179 @@ export function FileManagerScreen({
             {t(locale, "fileManager.dropToUpload", { path })}
           </div>
         )}
+      </div>
+      {deleteTarget && (
+        <DeleteConfirmDialog
+          locale={locale}
+          target={deleteTarget}
+          disabled={busy || isTransferring}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => void deleteEntry()}
+        />
+      )}
+      {renameTarget && (
+        <RenameDialog
+          locale={locale}
+          name={renameDraft}
+          error={renameError}
+          disabled={busy || isTransferring}
+          onName={(name) => {
+            setRenameDraft(name);
+            setRenameError("");
+          }}
+          onCancel={() => setRenameTarget(null)}
+          onConfirm={() => void renameEntry()}
+        />
+      )}
+    </div>
+  );
+}
+
+function DeleteConfirmDialog({
+  locale,
+  target,
+  disabled,
+  onCancel,
+  onConfirm
+}: {
+  locale: Locale;
+  target: DeleteTarget;
+  disabled: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="file-delete-title"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 50,
+        display: "grid",
+        placeItems: "center",
+        padding: 18,
+        background: "rgba(0,0,0,0.42)"
+      }}
+      onClick={onCancel}
+    >
+      <div
+        className="card"
+        style={{
+          width: 340,
+          maxWidth: "100%",
+          padding: 18,
+          background: "var(--color-surface-container-high)",
+          color: "var(--color-on-surface)"
+        }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+          <div
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: 999,
+              display: "grid",
+              placeItems: "center",
+              flex: "0 0 auto",
+              color: "#b45309",
+              background: "rgba(251,191,36,0.18)"
+            }}
+          >
+            <IconWarning size={24} />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div id="file-delete-title" style={{ fontSize: 17, fontWeight: 850 }}>
+              {t(locale, "fileManager.delete.title")}
+            </div>
+            <div className="muted" style={{ marginTop: 8, fontSize: 13, lineHeight: 1.55, overflowWrap: "anywhere" }}>
+              {t(locale, "fileManager.delete.body", { name: target.entry.name })}
+              {target.isDirectory ? (
+                <div style={{ marginTop: 6 }}>{t(locale, "fileManager.delete.directoryHint")}</div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 18 }}>
+          <button className="pillBtn secondary" type="button" onClick={onCancel} disabled={disabled}>
+            {t(locale, "common.cancel")}
+          </button>
+          <button className="pillBtn" type="button" onClick={onConfirm} disabled={disabled}>
+            {t(locale, "fileManager.delete.confirm")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RenameDialog({
+  locale,
+  name,
+  error,
+  disabled,
+  onName,
+  onCancel,
+  onConfirm
+}: {
+  locale: Locale;
+  name: string;
+  error: string;
+  disabled: boolean;
+  onName: (name: string) => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="file-rename-title"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 50,
+        display: "grid",
+        placeItems: "center",
+        padding: 18,
+        background: "rgba(0,0,0,0.42)"
+      }}
+      onClick={onCancel}
+    >
+      <div
+        className="card"
+        style={{ width: 340, maxWidth: "100%", padding: 18, background: "var(--color-surface-container-high)" }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div id="file-rename-title" style={{ fontSize: 17, fontWeight: 850, marginBottom: 12 }}>
+          {t(locale, "fileManager.rename.title")}
+        </div>
+        <label className="muted" style={{ display: "block", fontSize: 12, fontWeight: 750, marginBottom: 6 }}>
+          {t(locale, "fileManager.rename.name")}
+        </label>
+        <input
+          className="pathInput"
+          value={name}
+          autoFocus
+          spellCheck={false}
+          disabled={disabled}
+          onChange={(event) => onName(event.currentTarget.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") onConfirm();
+            if (event.key === "Escape") onCancel();
+          }}
+        />
+        {error ? <div className="muted" style={{ marginTop: 8, fontSize: 12, color: "#b42318" }}>{error}</div> : null}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 18 }}>
+          <button className="pillBtn secondary" type="button" onClick={onCancel} disabled={disabled}>
+            {t(locale, "common.cancel")}
+          </button>
+          <button className="pillBtn" type="button" onClick={onConfirm} disabled={disabled}>
+            {t(locale, "fileManager.rename.confirm")}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -668,13 +961,17 @@ function FileEntryRow({
   entry,
   disabled,
   onOpen,
-  onDownload
+  onDownload,
+  onRename,
+  onDelete
 }: {
   locale: Locale;
   entry: FileManagerEntry;
   disabled: boolean;
   onOpen: () => void;
   onDownload: () => void;
+  onRename: () => void;
+  onDelete: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const isDirectory = isDirectoryEntry(entry);
@@ -694,6 +991,34 @@ function FileEntryRow({
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {hovered && (
+          <button
+            className="iconBtn fileActionButton"
+            title={t(locale, "fileManager.rename.action")}
+            type="button"
+            disabled={disabled}
+            onClick={(event) => {
+              event.stopPropagation();
+              onRename();
+            }}
+          >
+            <IconEdit size={18} />
+          </button>
+        )}
+        {hovered && (
+          <button
+            className="iconBtn fileActionButton"
+            title={t(locale, "fileManager.delete.action")}
+            type="button"
+            disabled={disabled}
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete();
+            }}
+          >
+            <IconDelete size={18} />
+          </button>
+        )}
         {!isDirectory && hovered && (
           <button
             className="iconBtn fileActionButton"

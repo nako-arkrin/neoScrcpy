@@ -1,4 +1,4 @@
-export type ThemeMode = "system" | "light" | "dark";
+export type ThemeMode = "system" | "light" | "dark" | "pink" | "deepBlue";
 
 export type Locale = "zh-CN" | "en-US";
 
@@ -6,6 +6,7 @@ export type RecentDevice = {
   serial: string;
   name: string;
   model?: string;
+  mode?: "adb" | "fastboot";
   lastConnectedAt: number;
 };
 
@@ -14,6 +15,9 @@ export type StoredState = {
   locale: Locale;
   recentDevices: RecentDevice[];
   shizukuEnabled: boolean;
+  commandLineEnabled: boolean;
+  fastbootScanEnabled: boolean;
+  developerOptionsVisible: boolean;
   terminalFont: string;
   ignoredDeviceTipSerials: string[];
 };
@@ -23,18 +27,26 @@ export type PipResumeState = {
   title?: string;
 };
 
+const RECENT_DEVICE_LIMIT = 8;
+
 const defaults: StoredState = {
   themeMode: "system",
   locale: "zh-CN",
   recentDevices: [],
   shizukuEnabled: false,
+  commandLineEnabled: false,
+  fastbootScanEnabled: false,
+  developerOptionsVisible: false,
   terminalFont: "\"Cascadia Mono\", \"Cascadia Code\", Consolas, monospace",
   ignoredDeviceTipSerials: []
 };
 
 export async function getState(): Promise<StoredState> {
   const result = await chrome.storage.local.get(defaults);
-  return result as StoredState;
+  return {
+    ...result,
+    recentDevices: ((result.recentDevices as RecentDevice[] | undefined) ?? []).slice(0, RECENT_DEVICE_LIMIT)
+  } as StoredState;
 }
 
 export async function setThemeMode(themeMode: ThemeMode) {
@@ -47,6 +59,18 @@ export async function setLocale(locale: Locale) {
 
 export async function setShizukuEnabled(shizukuEnabled: boolean) {
   await chrome.storage.local.set({ shizukuEnabled });
+}
+
+export async function setCommandLineEnabled(commandLineEnabled: boolean) {
+  await chrome.storage.local.set({ commandLineEnabled });
+}
+
+export async function setFastbootScanEnabled(fastbootScanEnabled: boolean) {
+  await chrome.storage.local.set({ fastbootScanEnabled });
+}
+
+export async function setDeveloperOptionsVisible(developerOptionsVisible: boolean) {
+  await chrome.storage.local.set({ developerOptionsVisible });
 }
 
 export async function setTerminalFont(terminalFont: string) {
@@ -72,8 +96,15 @@ export async function addRecentDevice(device: Omit<RecentDevice, "lastConnectedA
   const next: RecentDevice[] = [
     { ...device, lastConnectedAt: Date.now() },
     ...state.recentDevices.filter((d) => d.serial !== device.serial)
-  ].slice(0, 2);
+  ].slice(0, RECENT_DEVICE_LIMIT);
   await chrome.storage.local.set({ recentDevices: next });
+}
+
+export async function removeRecentDevice(serial: string) {
+  const state = await getState();
+  await chrome.storage.local.set({
+    recentDevices: state.recentDevices.filter((device) => device.serial !== serial)
+  });
 }
 
 export async function clearRecentDevices() {

@@ -144,7 +144,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
 ## 更新日志 / Changelog
 
-### v0.1.1 (2026-03-06)
+### v0.1.3 (2026-03-06)
 - ✨ 新增右键菜单功能
 - ✨ Added context menu feature
 - 🌍 支持中英文切换

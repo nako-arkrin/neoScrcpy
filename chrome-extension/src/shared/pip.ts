@@ -15,6 +15,8 @@ type MapFn = (args: { clientX: number; clientY: number; target: HTMLElement }) =
   vh: number;
 } | null;
 
+const PIP_BAR_HEIGHT = 56;
+
 export function isDocumentPipSupported(): boolean {
   return typeof (window as any).documentPictureInPicture?.requestWindow === "function";
 }
@@ -143,6 +145,20 @@ function mapKeyCode(code: string): AndroidKeyCode | undefined {
   return table[code];
 }
 
+function getInitialPipSize(canvas: HTMLCanvasElement) {
+  const canvasWidth = canvas.width || 360;
+  const canvasHeight = canvas.height || 640;
+  const videoAspect = canvasWidth / canvasHeight;
+  const maxHeight = Math.max(420, Math.min(900, Math.floor(window.screen.availHeight * 0.86)));
+  const maxWidth = Math.max(320, Math.min(720, Math.floor(window.screen.availWidth * 0.46)));
+  const maxVideoHeight = Math.max(280, maxHeight - PIP_BAR_HEIGHT);
+  const scale = Math.min(maxWidth / canvasWidth, maxVideoHeight / canvasHeight);
+  const width = Math.max(280, Math.min(maxWidth, Math.round(canvasWidth * scale)));
+  const videoHeight = Math.max(280, Math.min(maxVideoHeight, Math.round(width / videoAspect)));
+
+  return { width, height: videoHeight + PIP_BAR_HEIGHT };
+}
+
 export async function openDocumentPip(args: {
   canvas: HTMLCanvasElement;
   title: string;
@@ -207,9 +223,10 @@ export async function openDocumentPip(args: {
 
   try {
     log("requestWindow start");
+    const initialSize = getInitialPipSize(args.canvas);
     const pipWindow: Window = await docPip.requestWindow({
-      width: 360,
-      height: 640,
+      width: initialSize.width,
+      height: initialSize.height,
       disallowReturnToOpener: false
     });
     win = pipWindow;
@@ -257,7 +274,7 @@ export async function openDocumentPip(args: {
       .root { display: flex; flex-direction: column; height: 100%; width: 100%; }
       .videoWrap { flex: 1 1 auto; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
       .video { width: 100%; height: 100%; object-fit: contain; touch-action: none; cursor: default; outline: none; }
-      .pipBar { flex: 0 0 auto; min-height: 56px; padding: 8px 10px; box-sizing: border-box; background: var(--pip-bar-bg); border-top: 1px solid var(--pip-bar-border); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+      .pipBar { flex: 0 0 auto; min-height: ${PIP_BAR_HEIGHT}px; padding: 8px 10px; box-sizing: border-box; background: var(--pip-bar-bg); border-top: 1px solid var(--pip-bar-border); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
       .pipLeft { display: flex; align-items: center; gap: 6px; min-width: 0; }
       .pipActions { display: flex; gap: 6px; }
       .headerTitle { min-width: 0; font-size: 15px; font-weight: 800; color: var(--pip-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -265,7 +282,6 @@ export async function openDocumentPip(args: {
       .iconBtn:hover { background: var(--pip-button-hover); }
       .iconBtn:disabled { color: var(--pip-button-disabled); cursor: default; }
       .iconBtn:disabled:hover { background: transparent; }
-      .status { position: absolute; top: 8px; right: 8px; background: rgba(34,197,94,0.9); color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0; }
     `;
     doc.head.appendChild(style);
 
@@ -275,11 +291,6 @@ export async function openDocumentPip(args: {
 
     const videoWrap = doc.createElement("div");
     videoWrap.className = "videoWrap";
-
-    const status = doc.createElement("div");
-    status.className = "status";
-    status.textContent = "LIVE";
-    videoWrap.appendChild(status);
 
     video = doc.createElement("video");
     video.className = "video";

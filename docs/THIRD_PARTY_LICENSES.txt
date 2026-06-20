@@ -118,11 +118,11 @@
 │  ├─ publisher: Eric Fennis
 │  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\lucide-react
 │  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\node_modules\lucide-react\LICENSE
-├─ neo-scrcpy-chrome-extension@0.1.1
+├─ neo-scrcpy-chrome-extension@0.1.3
 │  ├─ licenses: [1m[31mUNLICENSED[39m[22m
 │  ├─ private: true
 │  ├─ path: D:\Code\Other\browser-scrcpy\chrome-extension
-│  └─ licenseFile: D:\Code\Other\browser-scrcpy\chrome-extension\README.md
+│  └─ licenseFile: D:\Code\Other\browser-scrcpy\docs\chrome-extension.md
 ├─ react-dom@18.3.1
 │  ├─ licenses: MIT
 │  ├─ repository: https://github.com/facebook/react

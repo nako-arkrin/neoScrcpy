@@ -247,7 +247,7 @@ cat chrome-extension/dist/manifest.json
 {
   "manifest_version": 3,
   "name": "neoScrcpy",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "permissions": ["storage", "sidePanel", "tabs", "windows", "contextMenus"]
 }
 ```

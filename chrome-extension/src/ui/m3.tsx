@@ -1,5 +1,5 @@
 import React from "react";
-import { IconCheck, IconChevronRight } from "./icons";
+import { IconChevronRight } from "./icons";
 
 export const Card = ({
   className,
@@ -121,58 +121,6 @@ export function ListItem({
         {action}
         {isNav ? <IconChevronRight size={18} /> : null}
       </div>
-    </div>
-  );
-}
-
-export function Segmented({
-  options,
-  value,
-  onChange
-}: {
-  options: Array<{ value: string; label: string; icon?: React.ReactNode }>;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        width: "100%",
-        borderRadius: 999,
-        background: "var(--color-surface-container-highest)",
-        padding: 4,
-        height: 44
-      }}
-    >
-      {options.map((opt) => {
-        const selected = opt.value === value;
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => onChange(opt.value)}
-            style={{
-              flex: "1 1 0",
-              borderRadius: 999,
-              border: 0,
-              cursor: "pointer",
-              background: selected ? "var(--color-surface)" : "transparent",
-              color: selected ? "var(--color-on-surface)" : "var(--color-on-surface-variant)",
-              boxShadow: selected ? "var(--shadow-1)" : "none",
-              fontWeight: 600,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              padding: "0 10px"
-            }}
-          >
-            {selected ? <IconCheck size={16} /> : opt.icon ? <span style={{ opacity: 0.75 }}>{opt.icon}</span> : null}
-            {opt.label}
-          </button>
-        );
-      })}
     </div>
   );
 }

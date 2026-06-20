@@ -80,6 +80,7 @@ async function getAdbInterfaceCandidates(device: any): Promise<UsbInterfaceIdent
     for (const interface_ of configuration.interfaces) {
       for (const alternate of interface_.alternates) {
         if (alternate.interfaceClass !== 0xff) continue;
+        if (alternate.interfaceSubclass === 0x42 && alternate.interfaceProtocol !== 1) continue;
         const endpoints = alternate.endpoints ?? [];
         if (endpoints.length < 2) continue;
         const hasIn = endpoints.some((e: any) => e.direction === "in" && e.type === "bulk");

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { addRecentDevice, getState, Locale, ThemeMode } from "../../shared/storage";
 import { resolveTheme } from "../../shared/theme";
+import { WebFastboot } from "../../shared/fastboot";
 import { WebADB } from "../../shared/webadb";
 import { IconUsb } from "../../ui/icons";
 import { type I18nKey, t } from "../../shared/i18n";
@@ -68,6 +69,8 @@ export function PermissionApp() {
   const [locale, setLocale] = useState<Locale>("zh-CN");
   const [status, setStatus] = useState<Status>({ type: "ready" });
   const [busy, setBusy] = useState(false);
+  const [fastbootScanEnabled, setFastbootScanEnabled] = useState(false);
+  const [showDeviceModePicker, setShowDeviceModePicker] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -79,6 +82,7 @@ export function PermissionApp() {
       document.documentElement.lang = state.locale;
       document.title = `${t(state.locale, "permission.title")} - neoScrcpy`;
       setLocale(state.locale);
+      setFastbootScanEnabled(state.fastbootScanEnabled);
     })();
     const listener = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
       if (areaName !== "local") return;
@@ -91,6 +95,9 @@ export function PermissionApp() {
       if (changes.themeMode?.newValue) {
         const mql = window.matchMedia("(prefers-color-scheme: dark)");
         document.documentElement.dataset.theme = resolveTheme(changes.themeMode.newValue as ThemeMode, mql.matches);
+      }
+      if (changes.fastbootScanEnabled) {
+        setFastbootScanEnabled(Boolean(changes.fastbootScanEnabled.newValue));
       }
     };
     chrome.storage.onChanged.addListener(listener);
@@ -115,13 +122,20 @@ export function PermissionApp() {
     return { message };
   };
 
-  const connect = async () => {
+  const openAfterConnected = async () => {
+    setStatus({ type: "connected" });
+    const win = await chrome.windows.getCurrent();
+    await chrome.runtime.sendMessage({ type: "OPEN_SIDEPANEL", windowId: win.id });
+  };
+
+  const connectAdb = async () => {
     const webadb = WebADB.getInstance();
     if (!webadb.isSupported()) {
       setStatus({ type: "unsupported" });
       return;
     }
 
+    setShowDeviceModePicker(false);
     setBusy(true);
     setStatus({ type: "requesting" });
     try {
@@ -130,18 +144,55 @@ export function PermissionApp() {
         setStatus({ type: "cancelled" });
         return;
       }
-      await addRecentDevice({ serial: device.serial, name: device.name, model: device.model });
+      await addRecentDevice({ serial: device.serial, name: device.name, model: device.model, mode: "adb" });
       try {
         await device.dispose();
       } catch {}
-      setStatus({ type: "connected" });
-      const win = await chrome.windows.getCurrent();
-      await chrome.runtime.sendMessage({ type: "OPEN_SIDEPANEL", windowId: win.id });
+      await openAfterConnected();
     } catch (error: any) {
       setStatus({ type: "failed", error: normalizeErrorInfo(error) });
     } finally {
       setBusy(false);
     }
+  };
+
+  const connectFastboot = async () => {
+    if (!WebFastboot.getInstance().isSupported()) {
+      setStatus({ type: "unsupported" });
+      return;
+    }
+
+    setShowDeviceModePicker(false);
+    setBusy(true);
+    setStatus({ type: "requesting" });
+    try {
+      const device = await WebFastboot.getInstance().requestDevice();
+      if (!device) {
+        setStatus({ type: "cancelled" });
+        return;
+      }
+      await addRecentDevice({
+        serial: device.serial,
+        name: device.name,
+        model: device.model,
+        mode: "fastboot"
+      });
+      await device.dispose().catch(() => {});
+      await openAfterConnected();
+    } catch (error: any) {
+      setStatus({ type: "failed", error: { message: error?.message ?? String(error) } });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const connect = async () => {
+    if (fastbootScanEnabled) {
+      setShowDeviceModePicker(true);
+      setStatus({ type: "ready" });
+      return;
+    }
+    await connectAdb();
   };
 
   const openSidePanel = async () => {
@@ -237,6 +288,54 @@ export function PermissionApp() {
             {t(locale, "permission.statusLabel", { status: statusText })}
           </div>
         </section>
+
+        {showDeviceModePicker && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 40,
+              display: "grid",
+              placeItems: "center",
+              padding: 24,
+              background: "rgba(0,0,0,0.36)"
+            }}
+            onClick={() => setShowDeviceModePicker(false)}
+          >
+            <div
+              style={{
+                width: "min(100%, 420px)",
+                borderRadius: 18,
+                background: "var(--color-surface)",
+                color: "var(--color-on-surface)",
+                boxShadow: "0 18px 50px rgba(0,0,0,0.26)",
+                border: "1px solid var(--color-outline-variant)",
+                padding: 18
+              }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div style={{ fontSize: 18, fontWeight: 900 }}>{t(locale, "permission.modePicker.title")}</div>
+              <div className="muted" style={{ marginTop: 8, fontSize: 13, lineHeight: 1.55 }}>
+                {t(locale, "permission.modePicker.subtitle")}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}>
+                <ActionButton variant="secondary" disabled={busy} onClick={() => void connectAdb()}>
+                  {t(locale, "permission.modePicker.adb")}
+                </ActionButton>
+                <ActionButton variant="secondary" disabled={busy} onClick={() => void connectFastboot()}>
+                  {t(locale, "permission.modePicker.fastboot")}
+                </ActionButton>
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+                <ActionButton variant="ghost" disabled={busy} onClick={() => setShowDeviceModePicker(false)}>
+                  {t(locale, "common.cancel")}
+                </ActionButton>
+              </div>
+            </div>
+          </div>
+        )}
 
         <hr style={{ border: 0, borderTop: "1px solid var(--color-outline-variant)", margin: "0 0 42px" }} />
 

@@ -22,7 +22,7 @@
   --scrollbar-thumb: #b8b8bb;
   --scrollbar-thumb-hover: #8f8f94;
 
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.08), 0 1px 1px rgba(0, 0, 0, 0.06);
+  --shadow-1: none;
   --radius-card: 24px;
   --radius-pill: 999px;
 }
@@ -49,7 +49,57 @@ html[data-theme="dark"] {
   --scrollbar-thumb: #4f4f54;
   --scrollbar-thumb-hover: #717178;
 
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35), 0 1px 1px rgba(0, 0, 0, 0.28);
+  --shadow-1: none;
+}
+
+html[data-theme="pink"] {
+  --color-primary: #dd307b;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #ffd8e8;
+  --color-on-primary-container: #5d1134;
+
+  --color-secondary-container: #f7dde8;
+  --color-on-secondary-container: #3f2430;
+
+  --color-surface: #fff8fb;
+  --color-surface-container-high: #f8edf2;
+  --color-surface-container-highest: #efdfe7;
+  --color-surface-container: #ead7e1;
+
+  --color-on-surface: #23191d;
+  --color-on-surface-variant: #6b5260;
+
+  --color-outline: #8a6f7c;
+  --color-outline-variant: #d7beca;
+  --scrollbar-thumb: #d0a7ba;
+  --scrollbar-thumb-hover: #b57a98;
+
+  --shadow-1: none;
+}
+
+html[data-theme="deepBlue"] {
+  --color-primary: #a8c7fa;
+  --color-on-primary: #062e6f;
+  --color-primary-container: #a8c7fa;
+  --color-on-primary-container: #d3e3fd;
+
+  --color-secondary-container: #1f1f20;
+  --color-on-secondary-container: #d3e3fd;
+
+  --color-surface: #131314;
+  --color-surface-container-high: #1b1b1c;
+  --color-surface-container-highest: #242426;
+  --color-surface-container: #2c2c2f;
+
+  --color-on-surface: #edf4ff;
+  --color-on-surface-variant: #b8c9e6;
+
+  --color-outline: #7f9bc8;
+  --color-outline-variant: #28496f;
+  --scrollbar-thumb: #325783;
+  --scrollbar-thumb-hover: #5c7faf;
+
+  --shadow-1: none;
 }
 
 html,
@@ -372,6 +422,26 @@ html[data-page="popup"] .page {
 .pillBtn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+html[data-theme="deepBlue"] .pillBtn,
+html[data-theme="deepBlue"] .pillBtn.secondary {
+  height: 56px;
+  min-width: 128px;
+  padding: 0 30px;
+  border-radius: 999px;
+  background: #a8c7fa;
+  color: #062e6f;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+html[data-theme="deepBlue"] .pillBtn:hover:not(:disabled) {
+  background: color-mix(in srgb, #a8c7fa 92%, #ffffff);
+}
+
+html[data-theme="deepBlue"] .pillBtn:active:not(:disabled) {
+  background: color-mix(in srgb, #a8c7fa 86%, #062e6f);
 }
 
 .muted {
